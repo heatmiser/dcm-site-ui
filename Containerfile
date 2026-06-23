@@ -4,6 +4,7 @@
 
 # --- Stage 1: Build frontend ---
 FROM registry.access.redhat.com/ubi9/nodejs-20:latest AS frontend-build
+USER root
 WORKDIR /build
 COPY frontend/package*.json ./
 RUN npm ci
@@ -12,6 +13,7 @@ RUN npm run build
 
 # --- Stage 2: Backend runtime ---
 FROM registry.access.redhat.com/ubi9/nodejs-20:latest
+USER root
 WORKDIR /app
 
 COPY backend/package*.json ./
