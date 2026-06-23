@@ -1,0 +1,20 @@
+node_modules/
+dist/
+dev-data/
+*.db
+.env
+.env.local
+.DS_Store
+*.log
+
+# ansible-lint and ansible-test local collection install cache
+.ansible/
+
+# Editor artifacts
+*.swp
+*.swo
+.vscode/
+.claude/
+
+# Local secrets
+ignore/

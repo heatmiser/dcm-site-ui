@@ -1,0 +1,95 @@
+{
+  "serial": "6K5RMB2",
+  "hostname": "discovery-6k5rmb2.local",
+  "ip": "10.0.100.131",
+  "interfaces": [
+    { "name": "eno1",   "mac": "b4:96:91:d4:7a:50", "state": "up",   "mtu": 1500, "speed": 1000  },
+    { "name": "eno2",   "mac": "b4:96:91:d4:7a:51", "state": "down", "mtu": 1500, "speed": 1000  },
+    { "name": "ens3f0", "mac": "b4:96:91:d4:7a:52", "state": "down", "mtu": 9000, "speed": 25000 },
+    { "name": "ens3f1", "mac": "b4:96:91:d4:7a:53", "state": "down", "mtu": 9000, "speed": 25000 }
+  ],
+  "disks": [
+    {
+      "by_path": "/dev/disk/by-path/pci-0000:65:00.0-nvme-1",
+      "name": "nvme0n1",
+      "size_gb": 480,
+      "rotational": false,
+      "model": "Samsung PM9A3 480GB",
+      "vendor": "Samsung",
+      "serial": "S64GNXC200101",
+      "wwn": "0x0025385b41d7f9b1"
+    },
+    {
+      "by_path": "/dev/disk/by-path/pci-0000:01:00.0-nvme-1",
+      "name": "nvme1n1",
+      "size_gb": 3840,
+      "rotational": false,
+      "model": "Samsung PM9A3 3.84TB",
+      "vendor": "Samsung",
+      "serial": "S64GNXC200201",
+      "wwn": "0x0025385b41d7f9c1"
+    },
+    {
+      "by_path": "/dev/disk/by-path/pci-0000:02:00.0-nvme-1",
+      "name": "nvme2n1",
+      "size_gb": 3840,
+      "rotational": false,
+      "model": "Samsung PM9A3 3.84TB",
+      "vendor": "Samsung",
+      "serial": "S64GNXC200202",
+      "wwn": "0x0025385b41d7f9c2"
+    },
+    {
+      "by_path": "/dev/disk/by-path/pci-0000:03:00.0-nvme-1",
+      "name": "nvme3n1",
+      "size_gb": 3840,
+      "rotational": false,
+      "model": "Samsung PM9A3 3.84TB",
+      "vendor": "Samsung",
+      "serial": "S64GNXC200203",
+      "wwn": "0x0025385b41d7f9c3"
+    },
+    {
+      "by_path": "/dev/disk/by-path/pci-0000:04:00.0-nvme-1",
+      "name": "nvme4n1",
+      "size_gb": 3840,
+      "rotational": false,
+      "model": "Samsung PM9A3 3.84TB",
+      "vendor": "Samsung",
+      "serial": "S64GNXC200204",
+      "wwn": "0x0025385b41d7f9c4"
+    },
+    {
+      "by_path": "/dev/disk/by-path/pci-0000:05:00.0-nvme-1",
+      "name": "nvme5n1",
+      "size_gb": 3840,
+      "rotational": false,
+      "model": "Samsung PM9A3 3.84TB",
+      "vendor": "Samsung",
+      "serial": "S64GNXC200205",
+      "wwn": "0x0025385b41d7f9c5"
+    },
+    {
+      "by_path": "/dev/disk/by-path/pci-0000:06:00.0-nvme-1",
+      "name": "nvme6n1",
+      "size_gb": 3840,
+      "rotational": false,
+      "model": "Samsung PM9A3 3.84TB",
+      "vendor": "Samsung",
+      "serial": "S64GNXC200206",
+      "wwn": "0x0025385b41d7f9c6"
+    }
+  ],
+  "cpu": {
+    "count": 32,
+    "model": "Intel(R) Xeon(R) Gold 6326 CPU @ 2.90GHz",
+    "architecture": "x86_64"
+  },
+  "memory_gb": 256,
+  "gpu": [],
+  "system": {
+    "manufacturer": "Dell Inc.",
+    "model": "PowerEdge R750",
+    "bios_version": "1.9.2"
+  }
+}

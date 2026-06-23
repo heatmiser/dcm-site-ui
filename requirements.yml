@@ -1,0 +1,9 @@
+---
+collections:
+  - name: elise.quadlet
+    source: https://github.com/heatmiser/elise.quadlet.git
+    type: git
+    version: 0.1.2
+  - name: containers.podman
+  - name: ansible.posix
+...

@@ -1,0 +1,45 @@
+{
+  "serial": "9B2LNR7",
+  "hostname": "discovery-9b2lnr7.local",
+  "ip": "10.0.100.102",
+  "interfaces": [
+    { "name": "eno1",   "mac": "b4:96:91:a2:4d:20", "state": "up",   "mtu": 1500, "speed": 1000  },
+    { "name": "eno2",   "mac": "b4:96:91:a2:4d:21", "state": "down", "mtu": 1500, "speed": 1000  },
+    { "name": "ens3f0", "mac": "b4:96:91:a2:4d:22", "state": "down", "mtu": 9000, "speed": 25000 },
+    { "name": "ens3f1", "mac": "b4:96:91:a2:4d:23", "state": "down", "mtu": 9000, "speed": 25000 }
+  ],
+  "disks": [
+    {
+      "by_path": "/dev/disk/by-path/pci-0000:65:00.0-nvme-1",
+      "name": "nvme0n1",
+      "size_gb": 480,
+      "rotational": false,
+      "model": "Samsung PM9A3 480GB",
+      "vendor": "Samsung",
+      "serial": "S64GNXA091201",
+      "wwn": "0x0025385b21a4c8e1"
+    },
+    {
+      "by_path": "/dev/disk/by-path/pci-0000:66:00.0-nvme-1",
+      "name": "nvme1n1",
+      "size_gb": 480,
+      "rotational": false,
+      "model": "Samsung PM9A3 480GB",
+      "vendor": "Samsung",
+      "serial": "S64GNXA091202",
+      "wwn": "0x0025385b21a4c8e2"
+    }
+  ],
+  "cpu": {
+    "count": 64,
+    "model": "Intel(R) Xeon(R) Gold 6338 CPU @ 2.00GHz",
+    "architecture": "x86_64"
+  },
+  "memory_gb": 512,
+  "gpu": [],
+  "system": {
+    "manufacturer": "Dell Inc.",
+    "model": "PowerEdge R750",
+    "bios_version": "1.9.2"
+  }
+}

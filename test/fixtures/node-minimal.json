@@ -1,0 +1,32 @@
+{
+  "serial": "VMW-SIM-001",
+  "hostname": "discovery-vmw-sim-001.local",
+  "ip": "10.0.100.199",
+  "interfaces": [
+    { "name": "ens192", "mac": "00:50:56:ab:cd:ef", "state": "up", "mtu": 1500, "speed": 1000 }
+  ],
+  "disks": [
+    {
+      "by_path": "/dev/disk/by-path/pci-0000:00:10.0-ata-1.0",
+      "name": "sda",
+      "size_gb": 120,
+      "rotational": false,
+      "model": "VMware Virtual disk",
+      "vendor": "VMware",
+      "serial": "6000c29abcdef012",
+      "wwn": "0x6000c29abcdef012"
+    }
+  ],
+  "cpu": {
+    "count": 4,
+    "model": "Intel(R) Xeon(R) CPU E5-2630 v4 @ 2.20GHz",
+    "architecture": "x86_64"
+  },
+  "memory_gb": 16,
+  "gpu": [],
+  "system": {
+    "manufacturer": "VMware, Inc.",
+    "model": "VMware Virtual Platform",
+    "bios_version": "6.00"
+  }
+}

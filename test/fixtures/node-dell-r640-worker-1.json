@@ -1,0 +1,43 @@
+{
+  "serial": "2W7HMK5",
+  "hostname": "discovery-2w7hmk5.local",
+  "ip": "10.0.100.111",
+  "interfaces": [
+    { "name": "eno1", "mac": "18:66:da:7c:41:a0", "state": "up",   "mtu": 1500, "speed": 10000 },
+    { "name": "eno2", "mac": "18:66:da:7c:41:a1", "state": "down", "mtu": 1500, "speed": 10000 }
+  ],
+  "disks": [
+    {
+      "by_path": "/dev/disk/by-path/pci-0000:00:17.0-ata-1.0",
+      "name": "sda",
+      "size_gb": 480,
+      "rotational": false,
+      "model": "SSDSC2KB480G8R",
+      "vendor": "Intel",
+      "serial": "PHYF901200BV480CGN",
+      "wwn": "0x55cd2e415015d8b5"
+    },
+    {
+      "by_path": "/dev/disk/by-path/pci-0000:00:17.0-ata-2.0",
+      "name": "sdb",
+      "size_gb": 480,
+      "rotational": false,
+      "model": "SSDSC2KB480G8R",
+      "vendor": "Intel",
+      "serial": "PHYF901200BV480CGO",
+      "wwn": "0x55cd2e415015d8b6"
+    }
+  ],
+  "cpu": {
+    "count": 32,
+    "model": "Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz",
+    "architecture": "x86_64"
+  },
+  "memory_gb": 256,
+  "gpu": [],
+  "system": {
+    "manufacturer": "Dell Inc.",
+    "model": "PowerEdge R640",
+    "bios_version": "2.14.1"
+  }
+}

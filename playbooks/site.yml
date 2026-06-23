@@ -1,0 +1,21 @@
+---
+- name: Deploy dcm-site-ui OCP cluster provisioning UI
+  hosts: all
+  become: true
+  gather_facts: true
+  vars_files:
+    - "{{ playbook_dir }}/../vars/site_ui.yml"
+
+  tasks:
+    - name: Deploy dcm-site-ui Quadlet units
+      ansible.builtin.include_role:
+        name: elise.quadlet.deploy
+
+    - name: Start dcm-site-ui service
+      ansible.builtin.include_role:
+        name: elise.quadlet.start
+
+    - name: Validate dcm-site-ui deployment
+      ansible.builtin.include_role:
+        name: elise.quadlet.validate
+...

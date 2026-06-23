@@ -1,0 +1,45 @@
+{
+  "serial": "MXQ1234567",
+  "hostname": "discovery-mxq1234567.local",
+  "ip": "10.0.100.113",
+  "interfaces": [
+    { "name": "eno1",   "mac": "94:40:c9:3b:72:10", "state": "up",   "mtu": 1500, "speed": 10000 },
+    { "name": "eno2",   "mac": "94:40:c9:3b:72:11", "state": "down", "mtu": 1500, "speed": 10000 },
+    { "name": "eno3",   "mac": "94:40:c9:3b:72:12", "state": "down", "mtu": 1500, "speed": 10000 },
+    { "name": "eno4",   "mac": "94:40:c9:3b:72:13", "state": "down", "mtu": 1500, "speed": 10000 }
+  ],
+  "disks": [
+    {
+      "by_path": "/dev/disk/by-path/pci-0000:03:00.0-nvme-1",
+      "name": "nvme0n1",
+      "size_gb": 960,
+      "rotational": false,
+      "model": "HPE MR000960GWSSL",
+      "vendor": "HPE",
+      "serial": "WBI2025B20VH",
+      "wwn": "0x0014ee0027c5a1b4"
+    },
+    {
+      "by_path": "/dev/disk/by-path/pci-0000:04:00.0-nvme-1",
+      "name": "nvme1n1",
+      "size_gb": 960,
+      "rotational": false,
+      "model": "HPE MR000960GWSSL",
+      "vendor": "HPE",
+      "serial": "WBI2025B20VJ",
+      "wwn": "0x0014ee0027c5a1b5"
+    }
+  ],
+  "cpu": {
+    "count": 32,
+    "model": "Intel(R) Xeon(R) Gold 6226R CPU @ 2.90GHz",
+    "architecture": "x86_64"
+  },
+  "memory_gb": 256,
+  "gpu": [],
+  "system": {
+    "manufacturer": "HPE",
+    "model": "ProLiant DL380 Gen10",
+    "bios_version": "U30 v2.42"
+  }
+}

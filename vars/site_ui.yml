@@ -1,0 +1,58 @@
+---
+# dcm-site-ui service configuration
+#
+# Vault-provided secrets (pass via -e @secrets.yaml --vault-password-file <pass>):
+#   elise_quadlet_registry_username: ""   # quay.io pull auth (if image is private)
+#   elise_quadlet_registry_password: ""   # quay.io pull auth
+
+# --- Image reference ---
+dcm_site_ui_image: quay.io/s4v0/dcm-site-ui
+dcm_site_ui_image_tag: latest
+
+# --- Service configuration ---
+dcm_site_ui_port: 9090
+dcm_site_ui_firewall_zone: public
+
+# --- elise.quadlet collection interface ---
+elise_quadlet_service_mode: pull
+elise_quadlet_env_file_path: ""
+elise_quadlet_env_vars: {}
+
+elise_quadlet_required_packages:
+  - "@container-management"
+  - firewalld
+
+elise_quadlet_firewall_ports:
+  - port: "{{ dcm_site_ui_port }}/tcp"
+    zone: "{{ dcm_site_ui_firewall_zone }}"
+    permanent: true
+    state: enabled
+
+elise_quadlet_registry: ""
+
+elise_quadlet_network: {}
+elise_quadlet_pod: {}
+
+elise_quadlet_volumes:
+  - name: dcm-site-ui-data
+    description: dcm-site-ui SQLite persistent storage
+
+elise_quadlet_containers:
+  - name: dcm-site-ui
+    description: OCP cluster discovery and classification UI (Phase 3)
+    image: "{{ dcm_site_ui_image }}:{{ dcm_site_ui_image_tag }}"
+    publish:
+      - "{{ dcm_site_ui_port }}:9090"
+    volumes:
+      - "dcm-site-ui-data.volume:/var/lib/dcm-site-ui/data:Z"
+    env:
+      NODE_ENV: production
+      PORT: "9090"
+      DATA_DIR: /var/lib/dcm-site-ui/data
+    health:
+      cmd: "curl -sf http://127.0.0.1:9090/healthz"
+      interval: 30s
+      retries: 5
+      timeout: 10s
+    start_order: 1
+...
