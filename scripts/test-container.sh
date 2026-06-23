@@ -13,8 +13,8 @@ echo "  image: ${NODE_IMAGE}"
 echo ""
 
 podman run --rm \
-  -v "${REPO_DIR}/backend:/app:ro,Z" \
+  -v "${REPO_DIR}/backend:/src:ro,z" \
   -e DATA_DIR=/tmp/dcm-site-ui-test \
   -e NODE_ENV=test \
   "${NODE_IMAGE}" \
-  sh -c "cd /app && npm ci --include=dev && node --test test/"
+  sh -c "cp -r /src /tmp/work && cd /tmp/work && npm ci --include=dev && node --test test/"
