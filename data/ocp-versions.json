@@ -1,10 +1,20 @@
 {
-  "default": "4.20",
+  "default": "4.22",
   "versions": [
+    {
+      "version": "4.22",
+      "ee_image": "quay.io/s4v0/dcm-ocp-ee-4.22:latest",
+      "description": "OpenShift 4.22 (latest)"
+    },
+    {
+      "version": "4.21",
+      "ee_image": "quay.io/s4v0/dcm-ocp-ee-4.21:latest",
+      "description": "OpenShift 4.21"
+    },
     {
       "version": "4.20",
       "ee_image": "quay.io/s4v0/dcm-ocp-ee-4.20:latest",
-      "description": "OpenShift 4.20 (latest)"
+      "description": "OpenShift 4.20"
     },
     {
       "version": "4.19",
