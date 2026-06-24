@@ -1,0 +1,69 @@
+---
+name: Build and Push Container Image
+
+on:  # yamllint disable-line rule:truthy
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Backend tests
+        working-directory: backend
+        run: |
+          npm ci --include=dev
+          npm test
+        env:
+          DATA_DIR: /tmp/dcm-site-ui-test
+          NODE_ENV: test
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: deploy
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Log in to quay.io
+        uses: redhat-actions/podman-login@v1
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD }}
+
+      - name: Build container image
+        run: |
+          podman build \
+            -t dcm-site-ui:latest \
+            -t dcm-site-ui:${{ github.sha }} \
+            .
+
+      - name: Push container image
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: dcm-site-ui
+          tags: latest ${{ github.sha }}
+          registry: quay.io/${{ secrets.QUAY_USERNAME }}
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD }}

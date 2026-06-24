@@ -17,7 +17,7 @@ const isDevelopment = process.env.NODE_ENV !== "production";
 
 let version = "unknown";
 try {
-  const pkg = JSON.parse(readFileSync(path.join(__dirname, "../../package.json"), "utf8"));
+  const pkg = JSON.parse(readFileSync(path.join(__dirname, "../package.json"), "utf8"));
   version = pkg.version;
 } catch { /* ignore */ }
 
