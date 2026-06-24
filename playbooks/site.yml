@@ -6,6 +6,15 @@
   vars_files:
     - "{{ playbook_dir }}/../vars/site_ui.yml"
 
+  pre_tasks:
+    - name: Ensure dcm-site-ui data directory exists
+      ansible.builtin.file:
+        path: /var/lib/dcm-site-ui/data
+        state: directory
+        owner: "1001"
+        group: "0"
+        mode: "0755"
+
   tasks:
     - name: Deploy dcm-site-ui Quadlet units
       ansible.builtin.include_role:

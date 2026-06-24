@@ -10,7 +10,8 @@ const __dirname = path.dirname(__filename);
 
 const router = Router();
 
-const OCP_VERSIONS_PATH = path.join(__dirname, "../../data/ocp-versions.json");
+const OCP_VERSIONS_DATA_PATH = "/var/lib/dcm-site-ui/data/ocp-versions.json";
+const OCP_VERSIONS_BUILTIN_PATH = path.join(__dirname, "../../data/ocp-versions.json");
 
 const BOOTSTRAP_CONFIG_PATH =
   process.env.BOOTSTRAP_CONFIG_PATH ||
@@ -35,8 +36,11 @@ router.get("/bootstrap-config", (_req, res) => {
 // Returns available OCP versions for the version selector.
 router.get("/ocp-versions", (_req, res) => {
   try {
-    if (!existsSync(OCP_VERSIONS_PATH)) return res.json({ default: "", versions: [] });
-    const data = JSON.parse(readFileSync(OCP_VERSIONS_PATH, "utf8"));
+    const versionsPath = existsSync(OCP_VERSIONS_DATA_PATH)
+      ? OCP_VERSIONS_DATA_PATH
+      : OCP_VERSIONS_BUILTIN_PATH;
+    if (!existsSync(versionsPath)) return res.json({ default: "", versions: [] });
+    const data = JSON.parse(readFileSync(versionsPath, "utf8"));
     return res.json(data);
   } catch (err) {
     const errorId = generateErrorId();
