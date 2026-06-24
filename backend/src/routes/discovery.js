@@ -79,12 +79,38 @@ router.get("/nodes", (_req, res) => {
     const rows = db
       .prepare("SELECT * FROM discovered_nodes ORDER BY received_at ASC")
       .all();
-    const nodes = rows.map((row) => ({ ...row, manifest: JSON.parse(row.manifest_json) }));
+    const nodes = rows.map((row) => ({
+      ...row,
+      manifest: JSON.parse(row.manifest_json),
+      network_config: row.network_config_json ? JSON.parse(row.network_config_json) : null,
+    }));
     return res.json({ nodes });
   } catch (err) {
     const errorId = generateErrorId();
     logger.error({ err, errorId }, "Failed to list nodes");
     return res.status(500).json({ error: "Failed to list nodes", errorId });
+  }
+});
+
+// PUT /api/discovery/nodes/:id/network-config
+// Saves the NMState network config for a single node.
+router.put("/nodes/:id/network-config", (req, res) => {
+  const { id } = req.params;
+  const networkConfig = req.body;
+
+  try {
+    const result = db
+      .prepare("UPDATE discovered_nodes SET network_config_json = ? WHERE id = ?")
+      .run(JSON.stringify(networkConfig), id);
+
+    if (result.changes === 0) {
+      return res.status(404).json({ error: "Node not found" });
+    }
+    return res.json({ status: "ok" });
+  } catch (err) {
+    const errorId = generateErrorId();
+    logger.error({ err, errorId, id }, "Failed to save network config");
+    return res.status(500).json({ error: "Failed to save network config", errorId });
   }
 });
 

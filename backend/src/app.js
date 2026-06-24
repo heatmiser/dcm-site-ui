@@ -8,6 +8,7 @@ import { loggingMiddleware } from "./middleware/logging.js";
 import { metricsMiddleware } from "./middleware/metrics.js";
 import { getMetrics, getMetricsContentType } from "./metrics.js";
 import discoveryRouter from "./routes/discovery.js";
+import clusterRouter from "./routes/cluster.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -39,6 +40,7 @@ app.get("/api/metrics", async (_req, res) => {
 });
 
 app.use("/api/discovery", discoveryRouter);
+app.use("/api", clusterRouter);
 
 if (!isDevelopment) {
   const publicDir = path.join(__dirname, "..", "public");
