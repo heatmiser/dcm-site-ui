@@ -23,4 +23,5 @@ export const api = {
   drainNode: () => get("/api/discovery/drain"),
   classifyNodes: (nodes) => post("/api/discovery/classify", { nodes }),
   generate: (params) => post("/api/discovery/generate", params),
+  resetNodes: () => post("/api/discovery/reset", {}),
 };

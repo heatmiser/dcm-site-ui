@@ -23,7 +23,7 @@ function sortedClassified(nodes) {
     });
 }
 
-export default function ReviewView({ nodes, onExport }) {
+export default function ReviewView({ nodes, onExport, onReset }) {
   const classified = sortedClassified(nodes);
   const unclassified = nodes.filter(n => !n.role);
 
@@ -95,9 +95,10 @@ export default function ReviewView({ nodes, onExport }) {
         </tbody>
       </table>
 
-      <Button variant="primary" onClick={onExport}>
-        Export cluster-vars.yaml
-      </Button>
+      <div style={{ display: "flex", gap: "0.75rem" }}>
+        <Button variant="secondary" onClick={onReset}>Reset All</Button>
+        <Button variant="primary" onClick={onExport}>Export cluster-vars.yaml</Button>
+      </div>
     </div>
   );
 }
