@@ -224,7 +224,7 @@ function NodeCard({ node, sel, onSelect, onViewHardware }) {
   );
 }
 
-export default function ClassifyView({ nodes, selections, onSelect, onClassify }) {
+export default function ClassifyView({ nodes, selections, onSelect, onClassify, onReset }) {
   const [drawerNode, setDrawerNode] = useState(null);
 
   if (nodes.length === 0) {
@@ -252,13 +252,20 @@ export default function ClassifyView({ nodes, selections, onSelect, onClassify }
             <span style={{ color: "#6a6e73", fontSize: "0.875rem" }}>
               {assignedCount} of {nodes.length} nodes assigned
             </span>
-            <Button
-              variant="primary"
-              onClick={onClassify}
-              isDisabled={assignedCount === 0}
-            >
-              Submit Classification
-            </Button>
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              {nodes.some(n => n.role) && (
+                <Button variant="secondary" onClick={onReset}>
+                  Reset All
+                </Button>
+              )}
+              <Button
+                variant="primary"
+                onClick={onClassify}
+                isDisabled={assignedCount === 0}
+              >
+                Submit Classification
+              </Button>
+            </div>
           </div>
 
           <Gallery hasGutter minWidths={{ default: "300px" }}>

@@ -124,6 +124,24 @@ router.post("/classify", (req, res) => {
   }
 });
 
+// POST /api/discovery/reset
+// Clears all classification data from every node, returning them to pending state.
+router.post("/reset", (req, res) => {
+  try {
+    const result = db.prepare(`
+      UPDATE discovered_nodes
+      SET role = NULL, hostname = NULL, interface_selected = NULL,
+          disk_selected = NULL, classified_at = NULL
+    `).run();
+    logger.info({ updated: result.changes }, "All classifications reset");
+    return res.json({ status: "ok", updated: result.changes });
+  } catch (err) {
+    const errorId = generateErrorId();
+    logger.error({ err, errorId }, "Failed to reset classifications");
+    return res.status(500).json({ error: "Failed to reset classifications", errorId });
+  }
+});
+
 // POST /api/discovery/generate
 // Creates a generation job. Actual install-config generation deferred to next phase.
 router.post("/generate", (req, res) => {

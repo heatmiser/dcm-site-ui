@@ -84,6 +84,19 @@ export default function App() {
     }
   }, [selections, fetchNodes]);
 
+  const handleReset = useCallback(async () => {
+    if (!window.confirm("Reset all classifications? All role, hostname, and NIC/disk selections will be cleared.")) return;
+    try {
+      await api.resetNodes();
+      setSelections({});
+      await fetchNodes();
+      setAlert({ variant: "info", title: "All classifications reset." });
+      setActiveTab("classify");
+    } catch (err) {
+      setAlert({ variant: "danger", title: "Reset failed.", body: err.message });
+    }
+  }, [fetchNodes]);
+
   const handleExport = useCallback(async () => {
     const classified = nodes
       .filter(n => n.role)
@@ -199,6 +212,7 @@ export default function App() {
               selections={selections}
               onSelect={handleSelect}
               onClassify={handleClassify}
+              onReset={handleReset}
             />
           </Tab>
 
@@ -210,7 +224,7 @@ export default function App() {
               </TabTitleText>
             }
           >
-            <ReviewView nodes={nodes} onExport={handleExport} />
+            <ReviewView nodes={nodes} onExport={handleExport} onReset={handleReset} />
           </Tab>
         </Tabs>
       </div>
