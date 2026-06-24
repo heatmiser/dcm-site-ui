@@ -33,9 +33,7 @@ elise_quadlet_registry: ""
 elise_quadlet_network: {}
 elise_quadlet_pod: {}
 
-elise_quadlet_volumes:
-  - name: dcm-site-ui-data
-    description: dcm-site-ui SQLite persistent storage
+elise_quadlet_volumes: []
 
 elise_quadlet_containers:
   - name: dcm-site-ui
@@ -44,7 +42,7 @@ elise_quadlet_containers:
     publish:
       - "{{ dcm_site_ui_port }}:9090"
     volumes:
-      - "dcm-site-ui-data.volume:/var/lib/dcm-site-ui/data:Z"
+      - "/var/lib/dcm-site-ui/data:/var/lib/dcm-site-ui/data:Z"
     env:
       NODE_ENV: production
       PORT: "9090"
