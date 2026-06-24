@@ -2,27 +2,48 @@
 # dev-seed.sh — Seed all test fixtures and optionally auto-classify for UI development.
 #
 # Usage:
-#   ./scripts/dev-seed.sh [BASE_URL] [--classify]
+#   ./scripts/dev-seed.sh [--fixture-set <name>] [BASE_URL] [--classify]
 #
-#   BASE_URL defaults to http://localhost:9090
-#   --classify assigns roles: first 3 nodes → control-plane, rest → worker
+#   --fixture-set  subdirectory under test/fixtures/ to use (default: standard)
+#   BASE_URL       defaults to http://localhost:9090
+#   --classify     assigns roles: first 3 nodes → control-plane, rest → worker
 #
 # Examples:
-#   ./scripts/dev-seed.sh                           # seed only
-#   ./scripts/dev-seed.sh http://localhost:9090 --classify  # seed + auto-classify
+#   ./scripts/dev-seed.sh                                       # seed standard fixtures
+#   ./scripts/dev-seed.sh --fixture-set lab                     # seed lab fixtures
+#   ./scripts/dev-seed.sh --fixture-set lab --classify          # seed lab + auto-classify
+#   ./scripts/dev-seed.sh http://localhost:9090 --classify      # seed standard + classify
 set -euo pipefail
 
-BASE_URL="${1:-http://localhost:9090}"
+FIXTURE_SET="standard"
+BASE_URL="http://localhost:9090"
 CLASSIFY=false
 
-for arg in "$@"; do
-  [ "${arg}" = "--classify" ] && CLASSIFY=true
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --fixture-set)
+      FIXTURE_SET="$2"
+      shift 2
+      ;;
+    --classify)
+      CLASSIFY=true
+      shift
+      ;;
+    http://*|https://*)
+      BASE_URL="$1"
+      shift
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      exit 1
+      ;;
+  esac
 done
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Step 1: post all fixtures with no delay in seed mode
-PHONE_HOME_DELAY=0 "${SCRIPT_DIR}/simulate-phone-home.sh" "${BASE_URL}"
+PHONE_HOME_DELAY=0 "${SCRIPT_DIR}/simulate-phone-home.sh" --fixture-set "${FIXTURE_SET}" "${BASE_URL}"
 
 [ "${CLASSIFY}" = "false" ] && exit 0
 

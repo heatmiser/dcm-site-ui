@@ -1,0 +1,70 @@
+{
+  "serial": "5JDV3J4",
+  "hostname": "discovery-5jdv3j4.local",
+  "ip": "10.5.1.133",
+  "interfaces": [
+    { "name": "ens1f0np0", "mac": "6c:92:cf:82:ff:a0", "state": "up",   "mtu": 9000, "speed": 100000 },
+    { "name": "ens1f1np1", "mac": "6c:92:cf:82:ff:a1", "state": "up",   "mtu": 9000, "speed": 100000 }
+  ],
+  "disks": [
+    {
+      "by_path": "/dev/disk/by-path/pci-0000:88:00.0-nvme-1",
+      "name": "nvme0n1",
+      "size_gb": 3840,
+      "rotational": false,
+      "model": "Dell NVMe RI AG E3.S Gen5 3.84TB",
+      "vendor": "KIOXIA",
+      "serial": "Y8C0A09ZTP6K",
+      "wwn": "0x6c92cf00000000f1"
+    },
+    {
+      "by_path": "/dev/disk/by-path/pci-0000:89:00.0-nvme-1",
+      "name": "nvme1n1",
+      "size_gb": 3840,
+      "rotational": false,
+      "model": "Dell NVMe RI AG E3.S Gen5 3.84TB",
+      "vendor": "KIOXIA",
+      "serial": "Y8C0A09ZTP6L",
+      "wwn": "0x6c92cf00000000f2"
+    },
+    {
+      "by_path": "/dev/disk/by-path/pci-0000:8a:00.0-nvme-1",
+      "name": "nvme2n1",
+      "size_gb": 3840,
+      "rotational": false,
+      "model": "Dell NVMe RI AG E3.S Gen5 3.84TB",
+      "vendor": "KIOXIA",
+      "serial": "Y8C0A09ZTP6M",
+      "wwn": "0x6c92cf00000000f3"
+    },
+    {
+      "by_path": "/dev/disk/by-path/pci-0000:8b:00.0-nvme-1",
+      "name": "nvme3n1",
+      "size_gb": 3840,
+      "rotational": false,
+      "model": "Dell NVMe RI AG E3.S Gen5 3.84TB",
+      "vendor": "KIOXIA",
+      "serial": "Y8C0A09ZTP6N",
+      "wwn": "0x6c92cf00000000f4"
+    }
+  ],
+  "cpu": {
+    "count": 96,
+    "model": "Intel(R) Xeon(R) 6 6747P",
+    "architecture": "x86_64"
+  },
+  "memory_gb": 1024,
+  "gpu": [
+    {
+      "vendor": "Intel",
+      "model": "Gaudi3 PCIe 128GB",
+      "count": 4,
+      "pci_slot": "0000:1b:00.0"
+    }
+  ],
+  "system": {
+    "manufacturer": "Dell Inc.",
+    "model": "PowerEdge XE7740",
+    "bios_version": "1.7.5"
+  }
+}
