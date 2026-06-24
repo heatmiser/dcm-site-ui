@@ -1,0 +1,52 @@
+{
+  "serial": "4JDV3J4",
+  "hostname": "discovery-4jdv3j4.local",
+  "ip": "10.5.1.131",
+  "interfaces": [
+    { "name": "ens4f0np0",  "mac": "6c:92:cf:82:ef:b0", "state": "up",   "mtu": 9000, "speed": 100000 },
+    { "name": "ens4f1np1",  "mac": "6c:92:cf:82:ef:b1", "state": "up",   "mtu": 9000, "speed": 100000 },
+    { "name": "ens10f0np0", "mac": "6c:92:cf:82:fa:10", "state": "up",   "mtu": 9000, "speed": 100000 },
+    { "name": "ens10f1np1", "mac": "6c:92:cf:82:fa:11", "state": "up",   "mtu": 9000, "speed": 100000 }
+  ],
+  "disks": [
+    {
+      "by_path": "/dev/disk/by-path/pci-0000:02:00.0-nvme-1",
+      "name": "nvme0n1",
+      "size_gb": 480,
+      "rotational": false,
+      "model": "Dell NVMe ISE PE9010 BOSS-N1 RAID-1",
+      "vendor": "SK hynix",
+      "serial": "BOSS4JDV3J4A",
+      "wwn": "0x6c92cf00000000d1"
+    },
+    {
+      "by_path": "/dev/disk/by-path/pci-0000:88:00.0-nvme-1",
+      "name": "nvme1n1",
+      "size_gb": 1920,
+      "rotational": false,
+      "model": "Dell DC NVMe CD8P E3.S 1.92TB",
+      "vendor": "KIOXIA",
+      "serial": "Y8C0A09ZTN4I",
+      "wwn": "0x6c92cf00000000d2"
+    }
+  ],
+  "cpu": {
+    "count": 64,
+    "model": "Intel(R) Xeon(R) 6737P",
+    "architecture": "x86_64"
+  },
+  "memory_gb": 2048,
+  "gpu": [
+    {
+      "vendor": "NVIDIA",
+      "model": "RTX PRO 6000 Blackwell DC",
+      "count": 2,
+      "pci_slot": "0000:07:00.0"
+    }
+  ],
+  "system": {
+    "manufacturer": "Dell Inc.",
+    "model": "PowerEdge 17G Monolithic",
+    "bios_version": "1.7.5"
+  }
+}
