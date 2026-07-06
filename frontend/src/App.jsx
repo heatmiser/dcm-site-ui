@@ -3,6 +3,13 @@ import {
   Alert,
   AlertActionCloseButton,
   Badge,
+  Button,
+  List,
+  ListItem,
+  Modal,
+  ModalBody,
+  ModalFooter,
+  ModalHeader,
   Spinner,
   Tab,
   Tabs,
@@ -71,6 +78,46 @@ function buildNmstateYaml(networkConfig, indent = 6) {
   return lines.join("\n");
 }
 
+function isValidIpv4(s) {
+  if (!s) return false;
+  return /^(\d{1,3}\.){3}\d{1,3}$/.test(s) &&
+    s.split(".").every(n => { const v = parseInt(n, 10); return !isNaN(v) && v >= 0 && v <= 255; });
+}
+
+function isValidCidr(s) {
+  if (!s) return false;
+  const parts = s.split("/");
+  if (parts.length !== 2) return false;
+  const p = parseInt(parts[1], 10);
+  return isValidIpv4(parts[0]) && !isNaN(p) && p >= 0 && p <= 32;
+}
+
+function validateExport(classified, cc) {
+  const errs = [];
+  if (!cc.ocp_version) errs.push("OCP version is required.");
+  if (!cc.cluster_name) errs.push("Cluster name is required.");
+  if (!cc.base_domain) errs.push("Base domain is required.");
+  if (!cc.api_vip) errs.push("API VIP is required.");
+  else if (!isValidIpv4(cc.api_vip)) errs.push(`API VIP "${cc.api_vip}" is not a valid IPv4 address.`);
+  if (!cc.ingress_vip) errs.push("Ingress VIP is required.");
+  else if (!isValidIpv4(cc.ingress_vip)) errs.push(`Ingress VIP "${cc.ingress_vip}" is not a valid IPv4 address.`);
+  if (!cc.machine_network_cidr) errs.push("Machine network CIDR is required.");
+  else if (!isValidCidr(cc.machine_network_cidr)) errs.push(`Machine network CIDR "${cc.machine_network_cidr}" is not valid (expected x.x.x.x/n).`);
+  if (!cc.rendezvous_ip) errs.push("Rendezvous IP is required.");
+  else if (!isValidIpv4(cc.rendezvous_ip)) errs.push(`Rendezvous IP "${cc.rendezvous_ip}" is not a valid IPv4 address.`);
+  const cpCount = classified.filter(n => n.role === "control-plane").length;
+  if (cpCount === 0) errs.push("At least one control-plane node is required.");
+  else if (![1, 3, 4, 5].includes(cpCount)) errs.push(`Control-plane count must be 1, 3, 4, or 5 (found ${cpCount}).`);
+  const noHostname = classified.filter(n => !n.hostname);
+  if (noHostname.length > 0) errs.push(`${noHostname.length} classified node(s) have no hostname set.`);
+  const noIface = classified.filter(n => !n.interface_selected);
+  if (noIface.length > 0) errs.push(`${noIface.length} classified node(s) have no interface selected.`);
+  const hostnames = classified.map(n => n.hostname).filter(Boolean);
+  const dupes = hostnames.filter((h, i) => hostnames.indexOf(h) !== i);
+  if (dupes.length > 0) errs.push(`Duplicate hostnames: ${[...new Set(dupes)].join(", ")}.`);
+  return errs;
+}
+
 export default function App() {
   const [nodes, setNodes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -81,6 +128,7 @@ export default function App() {
   const [clusterConfig, setClusterConfig] = useState({});
   const [ocpVersions, setOcpVersions] = useState({ default: "", versions: [] });
   const [nodeNetworks, setNodeNetworks] = useState({});
+  const [exportErrors, setExportErrors] = useState([]);
 
   const fetchNodes = useCallback(async () => {
     try {
@@ -194,6 +242,12 @@ export default function App() {
 
     if (classified.length === 0) {
       setAlert({ variant: "warning", title: "No classified nodes to export." });
+      return;
+    }
+
+    const errors = validateExport(classified, clusterConfig);
+    if (errors.length > 0) {
+      setExportErrors(errors);
       return;
     }
 
@@ -328,6 +382,23 @@ export default function App() {
             {alert.body}
           </Alert>
         )}
+
+        <Modal
+          variant="small"
+          isOpen={exportErrors.length > 0}
+          onClose={() => setExportErrors([])}
+          aria-labelledby="export-errors-title"
+        >
+          <ModalHeader title="Cannot export — resolve errors first" labelId="export-errors-title" />
+          <ModalBody>
+            <List>
+              {exportErrors.map((err, i) => <ListItem key={i}>{err}</ListItem>)}
+            </List>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="primary" onClick={() => setExportErrors([])}>Close</Button>
+          </ModalFooter>
+        </Modal>
 
         <Tabs
           activeKey={activeTab}
