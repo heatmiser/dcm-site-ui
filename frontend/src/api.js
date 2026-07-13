@@ -39,4 +39,8 @@ export const api = {
   getOcpVersions: () => get("/api/ocp-versions"),
   getClusterConfig: () => get("/api/cluster-config"),
   putClusterConfig: (config) => put("/api/cluster-config", config),
+  triggerInstall: (cluster_name, cluster_vars_yaml) =>
+    post("/api/install", { cluster_name, cluster_vars_yaml }),
+  getInstallStatus: (name) => get(`/api/install/${name}/status`),
+  getInstallLog: (name) => get(`/api/install/${name}/log`),
 };
