@@ -43,6 +43,7 @@ elise_quadlet_containers:
       - "{{ dcm_site_ui_port }}:9090"
     volumes:
       - "/var/lib/dcm-site-ui/data:/var/lib/dcm-site-ui/data:Z"
+      - "/var/lib/dcm-bootstrap/clusters:/var/lib/dcm-bootstrap/clusters:z"
     env:
       NODE_ENV: production
       PORT: "9090"
