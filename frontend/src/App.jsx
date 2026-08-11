@@ -7,9 +7,9 @@ import {
   List,
   ListItem,
   Modal,
-  ModalBody,
-  ModalFooter,
-  ModalHeader,
+  ModalBoxBody,
+  ModalBoxFooter,
+  ModalBoxHeader,
   Spinner,
   Tab,
   Tabs,
@@ -427,15 +427,19 @@ export default function App() {
           onClose={() => setExportErrors([])}
           aria-labelledby="export-errors-title"
         >
-          <ModalHeader title="Cannot export — resolve errors first" labelId="export-errors-title" />
-          <ModalBody>
+          <ModalBoxHeader>
+            <h1 id="export-errors-title" className="pf-v5-c-modal-box__title">
+              Cannot export — resolve errors first
+            </h1>
+          </ModalBoxHeader>
+          <ModalBoxBody>
             <List>
               {exportErrors.map((err, i) => <ListItem key={i}>{err}</ListItem>)}
             </List>
-          </ModalBody>
-          <ModalFooter>
+          </ModalBoxBody>
+          <ModalBoxFooter>
             <Button variant="primary" onClick={() => setExportErrors([])}>Close</Button>
-          </ModalFooter>
+          </ModalBoxFooter>
         </Modal>
 
         <Tabs
