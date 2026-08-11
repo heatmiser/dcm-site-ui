@@ -10,7 +10,6 @@ import {
   ModalBoxBody,
   ModalBoxFooter,
   ModalBoxHeader,
-  ModalBoxTitle,
   Spinner,
   Tab,
   Tabs,
@@ -429,7 +428,9 @@ export default function App() {
           aria-labelledby="export-errors-title"
         >
           <ModalBoxHeader>
-            <ModalBoxTitle title="Cannot export — resolve errors first" id="export-errors-title" />
+            <h1 id="export-errors-title" className="pf-v5-c-modal-box__title">
+              Cannot export — resolve errors first
+            </h1>
           </ModalBoxHeader>
           <ModalBoxBody>
             <List>
