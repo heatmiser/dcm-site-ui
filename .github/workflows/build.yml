@@ -70,7 +70,7 @@ jobs:
             .
 
       - name: Push container image
-        uses: redhat-actions/push-to-registry@v2
+        uses: redhat-actions/push-to-registry@94ade333c38ecc0e60e94785125d9a52ca423b37  # v3
         with:
           image: dcm-site-ui
           tags: latest ${{ github.sha }}
