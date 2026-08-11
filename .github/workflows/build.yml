@@ -43,6 +43,7 @@ jobs:
 
   build:
     needs: test
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     environment: deploy
     permissions:
