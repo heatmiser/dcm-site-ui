@@ -45,7 +45,9 @@ app.use("/api/discovery", discoveryRouter);
 app.use("/api/install", installRouter);
 app.use("/api", clusterRouter);
 
-startPoller();
+if (process.env.NODE_ENV !== "test") {
+  startPoller();
+}
 
 if (!isDevelopment) {
   const publicDir = path.join(__dirname, "..", "public");
