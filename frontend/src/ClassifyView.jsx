@@ -2,12 +2,11 @@ import React, { useState } from "react";
 import {
   Button,
   Card, CardHeader, CardTitle, CardBody,
-  Drawer, DrawerActions, DrawerCloseButton, DrawerContent, DrawerContentBody,
-  DrawerHead, DrawerPanelBody, DrawerPanelContent,
+  Drawer, DrawerContent, DrawerContentBody,
+  DrawerPanelBody, DrawerPanelContent,
   Gallery, GalleryItem,
   Label,
   TextInput,
-  Title,
 } from "@patternfly/react-core";
 
 const ROLES = [
@@ -36,16 +35,35 @@ function diskLabel(disk) {
 function HardwarePanel({ node, onClose }) {
   const m = node?.manifest || {};
   return (
-    <DrawerPanelContent style={{ minWidth: "360px" }}>
-      <DrawerHead>
-        <Title headingLevel="h3" size="md">
-          {node ? `${m.system?.manufacturer || ""} ${m.system?.model || ""}`.trim() : ""}
-        </Title>
-        <DrawerActions>
-          <DrawerCloseButton onClick={onClose} />
-        </DrawerActions>
-      </DrawerHead>
-      <DrawerPanelBody>
+    <DrawerPanelContent widths={{ default: "width_33" }} style={{ minWidth: "340px", maxWidth: "480px" }}>
+      <div style={{
+        background: "#151515",
+        color: "#fff",
+        padding: "0.625rem 1rem",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        flexShrink: 0,
+      }}>
+        <span style={{ fontWeight: 700, fontSize: "0.9rem", letterSpacing: "0.01em" }}>Hardware details</span>
+        <button
+          onClick={onClose}
+          aria-label="Close hardware details"
+          style={{
+            background: "none",
+            border: "none",
+            color: "#fff",
+            cursor: "pointer",
+            fontSize: "1.1rem",
+            padding: "0 0.25rem",
+            lineHeight: 1,
+            opacity: 0.85,
+          }}
+        >
+          ✕
+        </button>
+      </div>
+      <DrawerPanelBody style={{ overflowY: "auto" }}>
         {node && (
           <dl style={{ fontSize: "0.875rem", lineHeight: 1.8, margin: 0 }}>
             <dt style={{ fontWeight: 600 }}>Serial</dt>
@@ -115,9 +133,7 @@ function HardwarePanel({ node, onClose }) {
 
 function NodeCard({ node, sel, onSelect, onViewHardware }) {
   const m = node.manifest || {};
-  const upIfaces = (m.interfaces || []).filter(i => i.state === "up");
   const allIfaces = m.interfaces || [];
-  const ifaceList = upIfaces.length > 0 ? upIfaces : allIfaces;
   const disks = m.disks || [];
 
   return (
@@ -125,12 +141,14 @@ function NodeCard({ node, sel, onSelect, onViewHardware }) {
       <CardHeader>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", width: "100%" }}>
           <div>
-            <CardTitle style={{ fontSize: "0.95rem" }}>
-              {m.system?.manufacturer} {m.system?.model}
+            <CardTitle style={{ fontSize: "0.95rem", fontFamily: "monospace", fontWeight: 700 }}>
+              {node.serial}
             </CardTitle>
-            <div style={{ fontSize: "0.75rem", color: "#6a6e73", fontFamily: "monospace" }}>
-              {node.ip}
-            </div>
+            {(m.system?.manufacturer || m.system?.model) && (
+              <div style={{ fontSize: "0.75rem", color: "#6a6e73" }}>
+                {`${m.system?.manufacturer || ""} ${m.system?.model || ""}`.trim()}
+              </div>
+            )}
           </div>
           {sel?.role && (
             <Label color={roleColor(sel.role)} style={{ marginLeft: "0.5rem", flexShrink: 0 }}>
@@ -186,9 +204,9 @@ function NodeCard({ node, sel, onSelect, onViewHardware }) {
               style={{ width: "100%" }}
             >
               <option value="">— select interface —</option>
-              {ifaceList.map(ifc => (
+              {allIfaces.map(ifc => (
                 <option key={ifc.name} value={ifc.name}>
-                  {ifc.name} ({ifc.mac}{ifc.speed ? ` ${ifc.speed}Mbps` : ""})
+                  {ifc.name} ({ifc.mac} · {ifc.state}{ifc.speed ? ` · ${ifc.speed}Mbps` : ""})
                 </option>
               ))}
             </select>
@@ -238,11 +256,12 @@ export default function ClassifyView({ nodes, selections, onSelect, onClassify, 
   const assignedCount = Object.values(selections).filter(s => s.role && s.hostname).length;
 
   return (
-    <Drawer isExpanded={!!drawerNode} position="right">
+    <div style={{ height: "calc(100vh - 180px)", overflow: "hidden" }}>
+    <Drawer isExpanded={!!drawerNode} position="right" style={{ height: "100%" }}>
       <DrawerContent panelContent={
         <HardwarePanel node={drawerNode} onClose={() => setDrawerNode(null)} />
-      }>
-        <DrawerContentBody>
+      } style={{ height: "100%", overflow: "hidden" }}>
+        <DrawerContentBody style={{ overflowY: "auto", height: "100%", boxSizing: "border-box" }}>
           <div style={{
             marginBottom: "1rem",
             display: "flex",
@@ -283,5 +302,6 @@ export default function ClassifyView({ nodes, selections, onSelect, onClassify, 
         </DrawerContentBody>
       </DrawerContent>
     </Drawer>
+    </div>
   );
 }

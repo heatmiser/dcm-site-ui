@@ -19,8 +19,7 @@ export default function DiscoveryView({ nodes, onNavigate }) {
       <div style={{ padding: "3rem", textAlign: "center", color: "#6a6e73" }}>
         <p style={{ marginBottom: "0.5rem" }}>No nodes discovered yet.</p>
         <p style={{ fontSize: "0.875rem" }}>
-          Boot nodes with the discovery ISO or run{" "}
-          <code>./scripts/simulate-phone-home.sh http://localhost:9090</code>
+          Boot nodes with the introspection live ISO.
         </p>
       </div>
     );
@@ -46,7 +45,7 @@ export default function DiscoveryView({ nodes, onNavigate }) {
         <thead className="pf-v5-c-table__thead">
           <tr className="pf-v5-c-table__tr">
             <th className="pf-v5-c-table__th">Serial</th>
-            <th className="pf-v5-c-table__th">IP</th>
+            <th className="pf-v5-c-table__th">MAC / IP</th>
             <th className="pf-v5-c-table__th">System</th>
             <th className="pf-v5-c-table__th">CPU</th>
             <th className="pf-v5-c-table__th">RAM (GB)</th>
@@ -62,7 +61,7 @@ export default function DiscoveryView({ nodes, onNavigate }) {
                 {node.serial}
               </td>
               <td className="pf-v5-c-table__td" style={{ fontFamily: "monospace" }}>
-                {node.ip}
+                {node.mac || node.ip || "—"}
               </td>
               <td className="pf-v5-c-table__td">
                 {node.manifest?.system?.manufacturer} {node.manifest?.system?.model}

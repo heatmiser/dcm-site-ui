@@ -390,10 +390,11 @@ export default function App() {
         color: "#fff",
         padding: "0.75rem 1.5rem",
         display: "flex",
+        justifyContent: "center",
         alignItems: "center",
-        gap: "1rem",
+        gap: "0.5rem",
       }}>
-        <span style={{ fontWeight: 600, fontSize: "1.1rem" }}>dcm-site-ui</span>
+        <span style={{ fontWeight: 600, fontSize: "1.1rem" }}>DCM Site UI</span>
         <span style={{ color: "#8a8d90", fontSize: "0.875rem" }}>
           OCP cluster discovery and classification — Phase 3
         </span>
