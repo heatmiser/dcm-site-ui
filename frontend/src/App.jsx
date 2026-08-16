@@ -150,6 +150,35 @@ function buildClusterVarsYaml(classified, cc, nodeNetworks) {
   return lines.join("\n") + "\n";
 }
 
+function ipToInt(ip) {
+  const parts = ip.split(".");
+  if (parts.length !== 4) return null;
+  let n = 0;
+  for (const p of parts) {
+    const v = parseInt(p, 10);
+    if (isNaN(v) || v < 0 || v > 255) return null;
+    n = (n << 8) + v;
+  }
+  return n >>> 0;
+}
+
+function ipInSubnet(ip, subnetIp, prefix) {
+  const ipInt = ipToInt(ip);
+  const netInt = ipToInt(subnetIp);
+  if (ipInt === null || netInt === null) return false;
+  const mask = prefix === 0 ? 0 : ((0xFFFFFFFF << (32 - prefix)) >>> 0);
+  return (ipInt & mask) === (netInt & mask);
+}
+
+function subnetsOverlap(ip1, prefix1, ip2, prefix2) {
+  const n1 = ipToInt(ip1);
+  const n2 = ipToInt(ip2);
+  if (n1 === null || n2 === null) return false;
+  const m1 = prefix1 === 0 ? 0 : ((0xFFFFFFFF << (32 - prefix1)) >>> 0);
+  const m2 = prefix2 === 0 ? 0 : ((0xFFFFFFFF << (32 - prefix2)) >>> 0);
+  return (n1 & m2) === (n2 & m2) || (n2 & m1) === (n1 & m1);
+}
+
 function isValidIpv4(s) {
   if (!s) return false;
   return /^(\d{1,3}\.){3}\d{1,3}$/.test(s) &&
@@ -164,7 +193,7 @@ function isValidCidr(s) {
   return isValidIpv4(parts[0]) && !isNaN(p) && p >= 0 && p <= 32;
 }
 
-function validateExport(classified, cc) {
+function validateExport(classified, cc, nodeNetworks) {
   const errs = [];
   if (!cc.ocp_version) errs.push("OCP version is required.");
   if (!cc.cluster_name) errs.push("Cluster name is required.");
@@ -182,11 +211,72 @@ function validateExport(classified, cc) {
   else if (![1, 3, 4, 5].includes(cpCount)) errs.push(`Control-plane count must be 1, 3, 4, or 5 (found ${cpCount}).`);
   const noHostname = classified.filter(n => !n.hostname);
   if (noHostname.length > 0) errs.push(`${noHostname.length} classified node(s) have no hostname set.`);
-  const noIface = classified.filter(n => !n.interface_selected);
+  const noIface = classified.filter(n => {
+    if (nodeNetworks[n.id]?.mode === "bond") return false;
+    return !n.interface_selected;
+  });
   if (noIface.length > 0) errs.push(`${noIface.length} classified node(s) have no interface selected.`);
   const hostnames = classified.map(n => n.hostname).filter(Boolean);
   const dupes = hostnames.filter((h, i) => hostnames.indexOf(h) !== i);
   if (dupes.length > 0) errs.push(`Duplicate hostnames: ${[...new Set(dupes)].join(", ")}.`);
+
+  // Collect all node IP entries for conflict checks
+  const ipEntries = [];
+  for (const node of classified) {
+    const ns = nodeNetworks[node.id];
+    if (!ns) continue;
+    if (ns.mode === "simple" && ns.simple?.ip) {
+      const prefix = parseInt(ns.simple.prefixLength || "24", 10);
+      ipEntries.push({ label: `${node.hostname} (simple)`, ip: ns.simple.ip, prefix, gateway: ns.simple.noGateway ? null : (ns.simple.gateway || null) });
+    } else if (ns.mode === "bond") {
+      for (const bond of (ns.bonds || [])) {
+        if (!bond.ip) continue;
+        const prefix = parseInt(bond.prefixLength || "24", 10);
+        ipEntries.push({ label: `${node.hostname}/${bond.name}`, ip: bond.ip, prefix, gateway: bond.noGateway ? null : (bond.gateway || null) });
+      }
+    }
+  }
+
+  // Duplicate IP check
+  const ipsSeen = new Map();
+  for (const e of ipEntries) {
+    if (!isValidIpv4(e.ip)) continue;
+    if (ipsSeen.has(e.ip)) errs.push(`Duplicate IP ${e.ip} on ${ipsSeen.get(e.ip)} and ${e.label}.`);
+    else ipsSeen.set(e.ip, e.label);
+  }
+
+  // IP is network/broadcast address check; gateway in subnet check
+  for (const e of ipEntries) {
+    if (!isValidIpv4(e.ip)) continue;
+    const ipInt = ipToInt(e.ip);
+    const mask = e.prefix === 0 ? 0 : ((0xFFFFFFFF << (32 - e.prefix)) >>> 0);
+    const networkAddr = ipInt & mask;
+    const broadcastAddr = networkAddr | (~mask >>> 0);
+    if (ipInt === networkAddr) errs.push(`${e.label}: ${e.ip} is the network address (not a valid host).`);
+    else if (ipInt === broadcastAddr) errs.push(`${e.label}: ${e.ip} is the broadcast address (not a valid host).`);
+    if (e.gateway && isValidIpv4(e.gateway) && !ipInSubnet(e.gateway, e.ip, e.prefix)) {
+      errs.push(`${e.label}: gateway ${e.gateway} is outside the /${e.prefix} subnet.`);
+    }
+  }
+
+  // Subnet overlap check (across distinct network addresses)
+  const uniqueSubnets = [];
+  for (const e of ipEntries) {
+    if (!isValidIpv4(e.ip)) continue;
+    const mask = e.prefix === 0 ? 0 : ((0xFFFFFFFF << (32 - e.prefix)) >>> 0);
+    const key = `${(ipToInt(e.ip) & mask) >>> 0}/${e.prefix}`;
+    if (!uniqueSubnets.find(s => s.key === key)) uniqueSubnets.push({ key, ip: e.ip, prefix: e.prefix, label: e.label });
+  }
+  for (let i = 0; i < uniqueSubnets.length; i++) {
+    for (let j = i + 1; j < uniqueSubnets.length; j++) {
+      const a = uniqueSubnets[i];
+      const b = uniqueSubnets[j];
+      if (a.key !== b.key && subnetsOverlap(a.ip, a.prefix, b.ip, b.prefix)) {
+        errs.push(`Subnet overlap: ${a.ip}/${a.prefix} (via ${a.label}) overlaps with ${b.ip}/${b.prefix} (via ${b.label}).`);
+      }
+    }
+  }
+
   return errs;
 }
 
@@ -223,6 +313,30 @@ export default function App() {
               disk_selected: node.disk_selected || "",
             };
           }
+        }
+        return merged;
+      });
+      setNodeNetworks(prev => {
+        const merged = { ...prev };
+        for (const node of fetched) {
+          if (merged[node.id]) continue;
+          const bonds = node.manifest?.bonds;
+          if (!Array.isArray(bonds) || bonds.length === 0) continue;
+          merged[node.id] = {
+            mode: "bond",
+            defaultRouteBond: bonds[0]?.name || "",
+            bonds: bonds.map(b => ({
+              name: b.name || "",
+              mode: b.mode || "802.3ad",
+              members: b.members || [],
+              ip: "",
+              prefixLength: "24",
+              gateway: "",
+              noGateway: false,
+              vlan: false,
+              vlanId: "",
+            })),
+          };
         }
         return merged;
       });
@@ -322,7 +436,7 @@ export default function App() {
       return;
     }
 
-    const errors = validateExport(classified, clusterConfig);
+    const errors = validateExport(classified, clusterConfig, nodeNetworks);
     if (errors.length > 0) {
       setExportErrors(errors);
       return;

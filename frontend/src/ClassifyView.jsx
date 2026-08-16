@@ -131,10 +131,11 @@ function HardwarePanel({ node, onClose }) {
   );
 }
 
-function NodeCard({ node, sel, onSelect, onViewHardware }) {
+function NodeCard({ node, sel, onSelect, onViewHardware, nodeNetwork }) {
   const m = node.manifest || {};
   const allIfaces = m.interfaces || [];
   const disks = m.disks || [];
+  const hasBonds = nodeNetwork?.mode === "bond" && (nodeNetwork.bonds || []).length > 0;
 
   return (
     <Card isFullHeight>
@@ -197,19 +198,32 @@ function NodeCard({ node, sel, onSelect, onViewHardware }) {
             <label style={{ fontSize: "0.75rem", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>
               Primary NIC
             </label>
-            <select
-              className="pf-v5-c-form-control"
-              value={sel?.interface_selected || ""}
-              onChange={e => onSelect(node.id, "interface_selected", e.target.value)}
-              style={{ width: "100%" }}
-            >
-              <option value="">— select interface —</option>
-              {allIfaces.map(ifc => (
-                <option key={ifc.name} value={ifc.name}>
-                  {ifc.name} ({ifc.mac} · {ifc.state}{ifc.speed ? ` · ${ifc.speed}Mbps` : ""})
-                </option>
-              ))}
-            </select>
+            {hasBonds ? (
+              <div style={{
+                padding: "0.4rem 0.5rem",
+                background: "#f0f4ff",
+                border: "1px solid #b8c7e0",
+                borderRadius: "3px",
+                fontSize: "0.8rem",
+                color: "#003d7a",
+              }}>
+                Bond mode — {nodeNetwork.bonds.map(b => b.name).join(", ")}
+              </div>
+            ) : (
+              <select
+                className="pf-v5-c-form-control"
+                value={sel?.interface_selected || ""}
+                onChange={e => onSelect(node.id, "interface_selected", e.target.value)}
+                style={{ width: "100%" }}
+              >
+                <option value="">— select interface —</option>
+                {allIfaces.map(ifc => (
+                  <option key={ifc.name} value={ifc.name}>
+                    {ifc.name} ({ifc.mac} · {ifc.state}{ifc.speed ? ` · ${ifc.speed}Mbps` : ""})
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           <div>
@@ -242,7 +256,7 @@ function NodeCard({ node, sel, onSelect, onViewHardware }) {
   );
 }
 
-export default function ClassifyView({ nodes, selections, onSelect, onClassify, onReset }) {
+export default function ClassifyView({ nodes, selections, onSelect, onClassify, onReset, nodeNetworks }) {
   const [drawerNode, setDrawerNode] = useState(null);
 
   if (nodes.length === 0) {
@@ -295,6 +309,7 @@ export default function ClassifyView({ nodes, selections, onSelect, onClassify, 
                   sel={selections[node.id]}
                   onSelect={onSelect}
                   onViewHardware={setDrawerNode}
+                  nodeNetwork={(nodeNetworks || {})[node.id]}
                 />
               </GalleryItem>
             ))}

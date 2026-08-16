@@ -18,6 +18,12 @@ function isValidSerial(s) {
   return true;
 }
 
+function parseBondState(s) {
+  const m = s.match(/^(\S+)\s+\(([^)]+)\)\s+\[([^\]]+)\]$/);
+  if (!m) return null;
+  return { name: m[1], mode: m[2], health: m[3] };
+}
+
 function primaryMac(interfaces) {
   for (const ifc of Object.values(interfaces || {})) {
     if (ifc.carrier === "UP" && ifc.mac) return ifc.mac;
@@ -48,6 +54,19 @@ function translateNode(nodeName, nodeData) {
     mtu: null,
     speed: null,
   }));
+
+  const bondGroups = {};
+  for (const [ifaceName, ifc] of Object.entries(ifaces)) {
+    const bs = ifc.bond_state;
+    if (!bs || bs === "Standalone") continue;
+    const parsed = parseBondState(bs);
+    if (!parsed) continue;
+    if (!bondGroups[parsed.name]) {
+      bondGroups[parsed.name] = { name: parsed.name, mode: parsed.mode, health: parsed.health, members: [] };
+    }
+    bondGroups[parsed.name].members.push(ifaceName);
+  }
+  const bonds = Object.values(bondGroups);
 
   const storage = nd.storage || {};
   const disks = (storage.devices || []).map((d) => ({
@@ -83,6 +102,7 @@ function translateNode(nodeName, nodeData) {
     ip: null,
     hostname: nodeName,
     interfaces,
+    bonds,
     disks,
     cpu,
     memory_gb,

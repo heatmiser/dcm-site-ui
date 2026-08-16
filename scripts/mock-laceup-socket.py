@@ -25,10 +25,17 @@ Workflow:
 The mock nodes use LACEUP- prefixed chassis serials so they do not collide
 with HTTP-seeded fixtures. You can use both paths simultaneously.
 
+Switch fabric (emulates fp-lab-network-automation MLAG pair):
+  fl3r5-RHOS-SW01 — NIC1 side (eno1/ens3f0 ports)
+  fl3r5-RHOS-SW02 — NIC2 side (ens1f1/ens3f1/ens5f1 ports)
+  Every server has two 802.3ad MLAG bonds across both switches:
+    bond-a: NIC1-p1 + NIC2-p1 (MACHINE/MIGRATION VLANs)
+    bond-b: NIC1-p2 + NIC2-p2 (STORAGE/VM-TRAFFIC VLANs)
+
 Node inventory (8 non-local nodes):
   r640-laceup-cp{1,2,3}  — Dell R640: 40c/256G/4×SAS-HDD/4-NIC (control-plane)
   r750-laceup-w{1,2,3}   — Dell R750: 64c/512G/2×NVMe/4-NIC  (worker)
-  a100-laceup-g{1,2}     — AMD EPYC:  96c/512G/2×NVMe-1.92T/2× NVIDIA A100 (GPU)
+  a100-laceup-g{1,2}     — Supermicro/AMD EPYC: 96c/512G/2×NVMe-1.92T/2×A100/4-NIC (GPU)
 """
 
 import argparse
@@ -47,8 +54,33 @@ BOOTSTRAP_HOSTNAME = "dcm-bootstrap"
 #   node_details  — output of HardwareLib.gather_inventory()
 #   interfaces    — dict of {iface_name: {mac, carrier, bond_state, edges}}
 
+def _iface(mac, bond_state):
+    return {
+        "mac": mac,
+        "carrier": "UP",
+        "bond_state": bond_state,
+        "phase": 1,
+        "status": "Unknown",
+        "connection_state": "Unknown",
+        "diag_trail": "N/A",
+        "tier_locked": False,
+        "edges": [],
+    }
+
+
+def _tor(sw, port_num):
+    """Return a top_of_rack_switches entry for the given switch and port number."""
+    return {"switch": sw, "port": f"Ethernet{port_num}/1"}
+
+
+SW01 = "fl3r5-RHOS-SW01"
+SW02 = "fl3r5-RHOS-SW02"
+
 NODES = {
     # ── Control-plane nodes: Dell R640 (40c/256G/4×SAS-HDD) ──────────────────
+    # NIC1: eno1 (bond-a) + eno2 (bond-b) → SW01
+    # NIC2: ens1f0 (bond-a) + ens1f1 (bond-b) → SW02
+    # bond-a: PC13/15/17 (cp1/cp2/cp3)  bond-b: PC14/16/18
 
     "r640-laceup-cp1": {
         "is_local": False,
@@ -74,19 +106,21 @@ NODES = {
                     {"device_name": "/dev/sdd", "model": "DELL PERC H755", "serial": "64cd98f2003e2a900023e5b900ca0003", "wwn": "0x64cd98f2003e2ca3", "transport": "sas", "media_type": "HDD (Rotational)", "size_bytes": 1999844147200, "size_gib": 1862.0},
                 ],
             },
-            "unique_identifiers": {
-                "chassis_serial": "LACEUP-R640-CP1",
-                "board_serial": "LACEUP-BD-R640-CP1",
-            },
+            "unique_identifiers": {"chassis_serial": "LACEUP-R640-CP1", "board_serial": "LACEUP-BD-R640-CP1"},
             "gpus": [],
         },
         "interfaces": {
-            "eno1":  {"mac": "24:6e:96:a1:10:01", "carrier": "UP",   "bond_state": "Standalone", "edges": []},
-            "eno2":  {"mac": "24:6e:96:a1:10:02", "carrier": "DOWN", "bond_state": "Standalone", "edges": []},
-            "ens1f0":{"mac": "24:6e:96:a1:10:03", "carrier": "DOWN", "bond_state": "Standalone", "edges": []},
-            "ens1f1":{"mac": "24:6e:96:a1:10:04", "carrier": "DOWN", "bond_state": "Standalone", "edges": []},
+            "eno1":   _iface("24:6e:96:a1:10:01", "bond-a (802.3ad) [OK]"),
+            "eno2":   _iface("24:6e:96:a1:10:02", "bond-b (802.3ad) [OK]"),
+            "ens1f0": _iface("24:6e:96:a1:10:03", "bond-a (802.3ad) [OK]"),
+            "ens1f1": _iface("24:6e:96:a1:10:04", "bond-b (802.3ad) [OK]"),
         },
-        "top_of_rack_switches": {},
+        "top_of_rack_switches": {
+            "eno1":   _tor(SW01, 13),
+            "eno2":   _tor(SW01, 14),
+            "ens1f0": _tor(SW02, 13),
+            "ens1f1": _tor(SW02, 14),
+        },
     },
 
     "r640-laceup-cp2": {
@@ -113,19 +147,21 @@ NODES = {
                     {"device_name": "/dev/sdd", "model": "DELL PERC H755", "serial": "64cd98f2003e2a900023e5b900cb0003", "wwn": "0x64cd98f2003e2cb3", "transport": "sas", "media_type": "HDD (Rotational)", "size_bytes": 1999844147200, "size_gib": 1862.0},
                 ],
             },
-            "unique_identifiers": {
-                "chassis_serial": "LACEUP-R640-CP2",
-                "board_serial": "LACEUP-BD-R640-CP2",
-            },
+            "unique_identifiers": {"chassis_serial": "LACEUP-R640-CP2", "board_serial": "LACEUP-BD-R640-CP2"},
             "gpus": [],
         },
         "interfaces": {
-            "eno1":  {"mac": "24:6e:96:a2:20:01", "carrier": "UP",   "bond_state": "Standalone", "edges": []},
-            "eno2":  {"mac": "24:6e:96:a2:20:02", "carrier": "DOWN", "bond_state": "Standalone", "edges": []},
-            "ens1f0":{"mac": "24:6e:96:a2:20:03", "carrier": "DOWN", "bond_state": "Standalone", "edges": []},
-            "ens1f1":{"mac": "24:6e:96:a2:20:04", "carrier": "DOWN", "bond_state": "Standalone", "edges": []},
+            "eno1":   _iface("24:6e:96:a2:20:01", "bond-a (802.3ad) [OK]"),
+            "eno2":   _iface("24:6e:96:a2:20:02", "bond-b (802.3ad) [OK]"),
+            "ens1f0": _iface("24:6e:96:a2:20:03", "bond-a (802.3ad) [OK]"),
+            "ens1f1": _iface("24:6e:96:a2:20:04", "bond-b (802.3ad) [OK]"),
         },
-        "top_of_rack_switches": {},
+        "top_of_rack_switches": {
+            "eno1":   _tor(SW01, 15),
+            "eno2":   _tor(SW01, 16),
+            "ens1f0": _tor(SW02, 15),
+            "ens1f1": _tor(SW02, 16),
+        },
     },
 
     "r640-laceup-cp3": {
@@ -152,22 +188,27 @@ NODES = {
                     {"device_name": "/dev/sdd", "model": "DELL PERC H755", "serial": "64cd98f2003e2a900023e5b900cc0003", "wwn": "0x64cd98f2003e2cc3", "transport": "sas", "media_type": "HDD (Rotational)", "size_bytes": 1999844147200, "size_gib": 1862.0},
                 ],
             },
-            "unique_identifiers": {
-                "chassis_serial": "LACEUP-R640-CP3",
-                "board_serial": "LACEUP-BD-R640-CP3",
-            },
+            "unique_identifiers": {"chassis_serial": "LACEUP-R640-CP3", "board_serial": "LACEUP-BD-R640-CP3"},
             "gpus": [],
         },
         "interfaces": {
-            "eno1":  {"mac": "24:6e:96:a3:30:01", "carrier": "UP",   "bond_state": "Standalone", "edges": []},
-            "eno2":  {"mac": "24:6e:96:a3:30:02", "carrier": "DOWN", "bond_state": "Standalone", "edges": []},
-            "ens1f0":{"mac": "24:6e:96:a3:30:03", "carrier": "DOWN", "bond_state": "Standalone", "edges": []},
-            "ens1f1":{"mac": "24:6e:96:a3:30:04", "carrier": "DOWN", "bond_state": "Standalone", "edges": []},
+            "eno1":   _iface("24:6e:96:a3:30:01", "bond-a (802.3ad) [OK]"),
+            "eno2":   _iface("24:6e:96:a3:30:02", "bond-b (802.3ad) [OK]"),
+            "ens1f0": _iface("24:6e:96:a3:30:03", "bond-a (802.3ad) [OK]"),
+            "ens1f1": _iface("24:6e:96:a3:30:04", "bond-b (802.3ad) [OK]"),
         },
-        "top_of_rack_switches": {},
+        "top_of_rack_switches": {
+            "eno1":   _tor(SW01, 17),
+            "eno2":   _tor(SW01, 18),
+            "ens1f0": _tor(SW02, 17),
+            "ens1f1": _tor(SW02, 18),
+        },
     },
 
     # ── Worker nodes: Dell R750 (64c/512G/2×NVMe) ────────────────────────────
+    # NIC1: eno1 (bond-a) + eno2 (bond-b) → SW01
+    # NIC2: ens3f0 (bond-a) + ens3f1 (bond-b) → SW02
+    # bond-a: PC71/73/75 (w1/w2/w3)  bond-b: PC72/74/76
 
     "r750-laceup-w1": {
         "is_local": False,
@@ -191,19 +232,21 @@ NODES = {
                     {"device_name": "/dev/nvme1n1", "model": "Samsung PM9A3 480GB", "serial": "S64GNXA083002", "wwn": "0x0025385b21a4e8a2", "transport": "nvme", "media_type": "SSD (Non-Rotational)", "size_bytes": 480103981056, "size_gib": 447.13},
                 ],
             },
-            "unique_identifiers": {
-                "chassis_serial": "LACEUP-R750-W1",
-                "board_serial": "LACEUP-BD-R750-W1",
-            },
+            "unique_identifiers": {"chassis_serial": "LACEUP-R750-W1", "board_serial": "LACEUP-BD-R750-W1"},
             "gpus": [],
         },
         "interfaces": {
-            "eno1":  {"mac": "b4:96:91:d1:10:01", "carrier": "UP",   "bond_state": "Standalone", "edges": []},
-            "eno2":  {"mac": "b4:96:91:d1:10:02", "carrier": "DOWN", "bond_state": "Standalone", "edges": []},
-            "ens3f0":{"mac": "b4:96:91:d1:10:03", "carrier": "DOWN", "bond_state": "Standalone", "edges": []},
-            "ens3f1":{"mac": "b4:96:91:d1:10:04", "carrier": "DOWN", "bond_state": "Standalone", "edges": []},
+            "eno1":   _iface("b4:96:91:d1:10:01", "bond-a (802.3ad) [OK]"),
+            "eno2":   _iface("b4:96:91:d1:10:02", "bond-b (802.3ad) [OK]"),
+            "ens3f0": _iface("b4:96:91:d1:10:03", "bond-a (802.3ad) [OK]"),
+            "ens3f1": _iface("b4:96:91:d1:10:04", "bond-b (802.3ad) [OK]"),
         },
-        "top_of_rack_switches": {},
+        "top_of_rack_switches": {
+            "eno1":   _tor(SW01, 71),
+            "eno2":   _tor(SW01, 72),
+            "ens3f0": _tor(SW02, 71),
+            "ens3f1": _tor(SW02, 72),
+        },
     },
 
     "r750-laceup-w2": {
@@ -228,19 +271,21 @@ NODES = {
                     {"device_name": "/dev/nvme1n1", "model": "Samsung PM9A3 480GB", "serial": "S64GNXA083004", "wwn": "0x0025385b21a4e8a4", "transport": "nvme", "media_type": "SSD (Non-Rotational)", "size_bytes": 480103981056, "size_gib": 447.13},
                 ],
             },
-            "unique_identifiers": {
-                "chassis_serial": "LACEUP-R750-W2",
-                "board_serial": "LACEUP-BD-R750-W2",
-            },
+            "unique_identifiers": {"chassis_serial": "LACEUP-R750-W2", "board_serial": "LACEUP-BD-R750-W2"},
             "gpus": [],
         },
         "interfaces": {
-            "eno1":  {"mac": "b4:96:91:d2:20:01", "carrier": "UP",   "bond_state": "Standalone", "edges": []},
-            "eno2":  {"mac": "b4:96:91:d2:20:02", "carrier": "DOWN", "bond_state": "Standalone", "edges": []},
-            "ens3f0":{"mac": "b4:96:91:d2:20:03", "carrier": "DOWN", "bond_state": "Standalone", "edges": []},
-            "ens3f1":{"mac": "b4:96:91:d2:20:04", "carrier": "DOWN", "bond_state": "Standalone", "edges": []},
+            "eno1":   _iface("b4:96:91:d2:20:01", "bond-a (802.3ad) [OK]"),
+            "eno2":   _iface("b4:96:91:d2:20:02", "bond-b (802.3ad) [OK]"),
+            "ens3f0": _iface("b4:96:91:d2:20:03", "bond-a (802.3ad) [OK]"),
+            "ens3f1": _iface("b4:96:91:d2:20:04", "bond-b (802.3ad) [OK]"),
         },
-        "top_of_rack_switches": {},
+        "top_of_rack_switches": {
+            "eno1":   _tor(SW01, 73),
+            "eno2":   _tor(SW01, 74),
+            "ens3f0": _tor(SW02, 73),
+            "ens3f1": _tor(SW02, 74),
+        },
     },
 
     "r750-laceup-w3": {
@@ -265,22 +310,27 @@ NODES = {
                     {"device_name": "/dev/nvme1n1", "model": "Samsung PM9A3 480GB", "serial": "S64GNXA083006", "wwn": "0x0025385b21a4e8a6", "transport": "nvme", "media_type": "SSD (Non-Rotational)", "size_bytes": 480103981056, "size_gib": 447.13},
                 ],
             },
-            "unique_identifiers": {
-                "chassis_serial": "LACEUP-R750-W3",
-                "board_serial": "LACEUP-BD-R750-W3",
-            },
+            "unique_identifiers": {"chassis_serial": "LACEUP-R750-W3", "board_serial": "LACEUP-BD-R750-W3"},
             "gpus": [],
         },
         "interfaces": {
-            "eno1":  {"mac": "b4:96:91:d3:30:01", "carrier": "UP",   "bond_state": "Standalone", "edges": []},
-            "eno2":  {"mac": "b4:96:91:d3:30:02", "carrier": "DOWN", "bond_state": "Standalone", "edges": []},
-            "ens3f0":{"mac": "b4:96:91:d3:30:03", "carrier": "DOWN", "bond_state": "Standalone", "edges": []},
-            "ens3f1":{"mac": "b4:96:91:d3:30:04", "carrier": "DOWN", "bond_state": "Standalone", "edges": []},
+            "eno1":   _iface("b4:96:91:d3:30:01", "bond-a (802.3ad) [OK]"),
+            "eno2":   _iface("b4:96:91:d3:30:02", "bond-b (802.3ad) [OK]"),
+            "ens3f0": _iface("b4:96:91:d3:30:03", "bond-a (802.3ad) [OK]"),
+            "ens3f1": _iface("b4:96:91:d3:30:04", "bond-b (802.3ad) [OK]"),
         },
-        "top_of_rack_switches": {},
+        "top_of_rack_switches": {
+            "eno1":   _tor(SW01, 75),
+            "eno2":   _tor(SW01, 76),
+            "ens3f0": _tor(SW02, 75),
+            "ens3f1": _tor(SW02, 76),
+        },
     },
 
-    # ── GPU nodes: AMD EPYC + 2× NVIDIA A100 (96c/512G/2×NVMe-1.92TB) ───────
+    # ── GPU nodes: Supermicro/AMD EPYC + 2× NVIDIA A100 (96c/512G/2×NVMe-1.92TB) ──
+    # NIC1: ens3f0 (bond-a) + ens3f1 (bond-b) → SW01
+    # NIC2: ens5f0 (bond-a) + ens5f1 (bond-b) → SW02
+    # bond-a: PC77/79 (g1/g2)  bond-b: PC78/80
 
     "a100-laceup-g1": {
         "is_local": False,
@@ -304,20 +354,24 @@ NODES = {
                     {"device_name": "/dev/nvme1n1", "model": "Samsung PM9A3 1.92TB", "serial": "S64GNE0T123802", "wwn": "0x0025385b21b4c9d2", "transport": "nvme", "media_type": "SSD (Non-Rotational)", "size_bytes": 1920383410176, "size_gib": 1789.0},
                 ],
             },
-            "unique_identifiers": {
-                "chassis_serial": "LACEUP-A100-G1",
-                "board_serial": "LACEUP-BD-A100-G1",
-            },
+            "unique_identifiers": {"chassis_serial": "LACEUP-A100-G1", "board_serial": "LACEUP-BD-A100-G1"},
             "gpus": [
                 {"vendor": "NVIDIA", "detection_source": "nvidia-smi", "uuid": "GPU-a3f14b22-1234-5678-abcd-000000000001", "pci_bus_id": "0000:61:00.0", "vram_total_gib": 40.0},
                 {"vendor": "NVIDIA", "detection_source": "nvidia-smi", "uuid": "GPU-a3f14b22-1234-5678-abcd-000000000002", "pci_bus_id": "0000:81:00.0", "vram_total_gib": 40.0},
             ],
         },
         "interfaces": {
-            "ens3f0": {"mac": "94:6d:ae:a0:30:01", "carrier": "UP",   "bond_state": "Standalone", "edges": []},
-            "ens3f1": {"mac": "94:6d:ae:a0:30:02", "carrier": "DOWN", "bond_state": "Standalone", "edges": []},
+            "ens3f0": _iface("94:6d:ae:a0:30:01", "bond-a (802.3ad) [OK]"),
+            "ens3f1": _iface("94:6d:ae:a0:30:02", "bond-b (802.3ad) [OK]"),
+            "ens5f0": _iface("94:6d:ae:a0:30:03", "bond-a (802.3ad) [OK]"),
+            "ens5f1": _iface("94:6d:ae:a0:30:04", "bond-b (802.3ad) [OK]"),
         },
-        "top_of_rack_switches": {},
+        "top_of_rack_switches": {
+            "ens3f0": _tor(SW01, 77),
+            "ens3f1": _tor(SW01, 78),
+            "ens5f0": _tor(SW02, 77),
+            "ens5f1": _tor(SW02, 78),
+        },
     },
 
     "a100-laceup-g2": {
@@ -342,20 +396,24 @@ NODES = {
                     {"device_name": "/dev/nvme1n1", "model": "Samsung PM9A3 1.92TB", "serial": "S64GNE0T123804", "wwn": "0x0025385b21b4c9d4", "transport": "nvme", "media_type": "SSD (Non-Rotational)", "size_bytes": 1920383410176, "size_gib": 1789.0},
                 ],
             },
-            "unique_identifiers": {
-                "chassis_serial": "LACEUP-A100-G2",
-                "board_serial": "LACEUP-BD-A100-G2",
-            },
+            "unique_identifiers": {"chassis_serial": "LACEUP-A100-G2", "board_serial": "LACEUP-BD-A100-G2"},
             "gpus": [
                 {"vendor": "NVIDIA", "detection_source": "nvidia-smi", "uuid": "GPU-b7e25c33-2345-6789-bcde-000000000003", "pci_bus_id": "0000:61:00.0", "vram_total_gib": 40.0},
                 {"vendor": "NVIDIA", "detection_source": "nvidia-smi", "uuid": "GPU-b7e25c33-2345-6789-bcde-000000000004", "pci_bus_id": "0000:81:00.0", "vram_total_gib": 40.0},
             ],
         },
         "interfaces": {
-            "ens3f0": {"mac": "94:6d:ae:b0:40:01", "carrier": "UP",   "bond_state": "Standalone", "edges": []},
-            "ens3f1": {"mac": "94:6d:ae:b0:40:02", "carrier": "DOWN", "bond_state": "Standalone", "edges": []},
+            "ens3f0": _iface("94:6d:ae:b0:40:01", "bond-a (802.3ad) [OK]"),
+            "ens3f1": _iface("94:6d:ae:b0:40:02", "bond-b (802.3ad) [OK]"),
+            "ens5f0": _iface("94:6d:ae:b0:40:03", "bond-a (802.3ad) [OK]"),
+            "ens5f1": _iface("94:6d:ae:b0:40:04", "bond-b (802.3ad) [OK]"),
         },
-        "top_of_rack_switches": {},
+        "top_of_rack_switches": {
+            "ens3f0": _tor(SW01, 79),
+            "ens3f1": _tor(SW01, 80),
+            "ens5f0": _tor(SW02, 79),
+            "ens5f1": _tor(SW02, 80),
+        },
     },
 }
 

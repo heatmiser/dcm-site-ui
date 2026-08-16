@@ -8,6 +8,8 @@ import { api } from "./api.js";
 
 const ROLE_ORDER = { "control-plane": 0, "infra": 1, "worker": 2, "storage": 3 };
 
+const PREFIX_OPTIONS = ["8","16","22","23","24","25","26","27","28","29","30"];
+
 function roleColor(role) {
   if (role === "control-plane") return "blue";
   if (role === "infra") return "purple";
@@ -53,12 +55,12 @@ function buildNmstate(node, netState) {
       "mac-address": ifc?.mac || "",
       ipv4: {
         enabled: true,
-        address: [{ ip, "prefix-length": parseInt(prefixLength, 10) }],
+        address: [{ ip: ip.trim(), "prefix-length": parseInt(prefixLength, 10) }],
         dhcp: false,
       },
     });
     if (gateway) {
-      routes.push({ destination: "0.0.0.0/0", "next-hop-address": gateway, "next-hop-interface": nic, "table-id": 254 });
+      routes.push({ destination: "0.0.0.0/0", "next-hop-address": gateway.trim(), "next-hop-interface": nic, "table-id": 254 });
     }
   } else if (netState.mode === "bond") {
     const defaultRouteBond = netState.defaultRouteBond || "";
@@ -77,7 +79,7 @@ function buildNmstate(node, netState) {
         type: "bond",
         state: "up",
         ipv4: ipOnParent && ip && prefixLength
-          ? { enabled: true, address: [{ ip, "prefix-length": parseInt(prefixLength, 10) }], dhcp: false }
+          ? { enabled: true, address: [{ ip: ip.trim(), "prefix-length": parseInt(prefixLength, 10) }], dhcp: false }
           : { enabled: false },
         "link-aggregation": {
           mode: mode || "active-backup",
@@ -105,7 +107,7 @@ function buildNmstate(node, netState) {
           vlan: { "base-iface": name, id: parseInt(vlanId, 10) },
           ipv4: {
             enabled: true,
-            address: [{ ip, "prefix-length": parseInt(prefixLength, 10) }],
+            address: [{ ip: ip.trim(), "prefix-length": parseInt(prefixLength, 10) }],
             dhcp: false,
           },
         });
@@ -114,7 +116,7 @@ function buildNmstate(node, netState) {
       // Only the designated default route bond emits the 0.0.0.0/0 route
       if (name === defaultRouteBond && gateway) {
         const routeIface = hasVlan ? vlanIfaceName : name;
-        routes.push({ destination: "0.0.0.0/0", "next-hop-address": gateway, "next-hop-interface": routeIface, "table-id": 254 });
+        routes.push({ destination: "0.0.0.0/0", "next-hop-address": gateway.trim(), "next-hop-interface": routeIface, "table-id": 254 });
       }
     }
     if (interfaces.length === 0) return null;
@@ -175,8 +177,8 @@ function formatScalar(v) {
 }
 
 // --- Bond entry editor ---
-function BondEntry({ bond, index, availableNics, allNics, onUpdate, onRemove }) {
-  const { name, mode, members, ip, prefixLength, gateway, vlan, vlanId } = bond;
+function BondEntry({ bond, index, availableNics, allNics, onUpdate, onRemove, onIpBlur, onGatewayBlur, onNoGatewayChange, onVlanChange, onVlanIdBlur }) {
+  const { name, mode, members, ip, prefixLength, gateway, vlan, vlanId, noGateway } = bond;
   const set = (field, value) => onUpdate({ ...bond, [field]: value });
 
   const vlanIfaceName = vlan && vlanId ? `${name || "bond"}.${vlanId}` : null;
@@ -261,23 +263,33 @@ function BondEntry({ bond, index, availableNics, allNics, onUpdate, onRemove }) 
 
         <div>
           <label style={{ fontSize: "0.75rem", fontWeight: 600, display: "block", marginBottom: "0.2rem" }}>IP Address</label>
-          <input className="pf-v5-c-form-control" value={ip} onChange={e => set("ip", e.target.value)} placeholder="10.5.1.21" style={{ width: "100%" }} />
+          <input className="pf-v5-c-form-control" value={ip} onChange={e => set("ip", e.target.value)} onBlur={e => { const v = e.target.value.trim(); if (v !== e.target.value) set("ip", v); onIpBlur && onIpBlur(v); }} placeholder="10.5.1.21" style={{ width: "100%" }} />
         </div>
 
         <div>
           <label style={{ fontSize: "0.75rem", fontWeight: 600, display: "block", marginBottom: "0.2rem" }}>Prefix Length</label>
-          <input className="pf-v5-c-form-control" value={prefixLength} onChange={e => set("prefixLength", e.target.value)} placeholder="24" style={{ width: "100%" }} />
+          <select className="pf-v5-c-form-control" value={prefixLength} onChange={e => set("prefixLength", e.target.value)} style={{ width: "100%" }}>
+            {PREFIX_OPTIONS.map(p => <option key={p} value={p}>/{p}</option>)}
+          </select>
         </div>
 
         <div style={{ gridColumn: "1 / -1" }}>
-          <label style={{ fontSize: "0.75rem", fontWeight: 600, display: "block", marginBottom: "0.2rem" }}>Default Gateway</label>
-          <input className="pf-v5-c-form-control" value={gateway} onChange={e => set("gateway", e.target.value)} placeholder="10.5.1.1" style={{ width: "100%" }} />
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.2rem" }}>
+            <label style={{ fontSize: "0.75rem", fontWeight: 600 }}>Default Gateway</label>
+            <label style={{ fontSize: "0.75rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.3rem", color: "#6a6e73" }}>
+              <input type="checkbox" checked={!!noGateway} onChange={e => { onUpdate({ ...bond, noGateway: e.target.checked, gateway: e.target.checked ? "" : gateway }); onNoGatewayChange && onNoGatewayChange(e.target.checked); }} />
+              No gateway
+            </label>
+          </div>
+          {!noGateway && (
+            <input className="pf-v5-c-form-control" value={gateway} onChange={e => set("gateway", e.target.value)} onBlur={e => { const v = e.target.value.trim(); if (v !== e.target.value) set("gateway", v); onGatewayBlur && onGatewayBlur(v); }} placeholder="10.5.1.1" style={{ width: "100%" }} />
+          )}
         </div>
 
         {/* VLAN toggle */}
         <div style={{ gridColumn: "1 / -1", display: "flex", alignItems: "center", gap: "1rem", marginTop: "0.25rem" }}>
           <label style={{ fontSize: "0.8rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-            <input type="checkbox" checked={!!vlan} onChange={e => set("vlan", e.target.checked)} />
+            <input type="checkbox" checked={!!vlan} onChange={e => { set("vlan", e.target.checked); onVlanChange && onVlanChange(e.target.checked); }} />
             VLAN
           </label>
           {vlan && (
@@ -287,6 +299,7 @@ function BondEntry({ bond, index, availableNics, allNics, onUpdate, onRemove }) 
                 className="pf-v5-c-form-control"
                 value={vlanId}
                 onChange={e => set("vlanId", e.target.value)}
+                onBlur={e => onVlanIdBlur && onVlanIdBlur(e.target.value)}
                 placeholder="100"
                 style={{ width: "80px" }}
               />
@@ -304,7 +317,7 @@ function BondEntry({ bond, index, availableNics, allNics, onUpdate, onRemove }) 
 }
 
 // --- Per-node network config panel ---
-function NodeNetworkPanel({ node, netState, onChange, clusterDns }) {
+function NodeNetworkPanel({ node, netState, onChange, clusterDns, onAutoFill }) {
   const m = node.manifest || {};
   const allNics = m.interfaces || [];
 
@@ -344,6 +357,7 @@ function NodeNetworkPanel({ node, netState, onChange, clusterDns }) {
       ip: "",
       prefixLength: "24",
       gateway: "",
+      noGateway: false,
       vlan: false,
       vlanId: "",
     };
@@ -414,15 +428,25 @@ function NodeNetworkPanel({ node, netState, onChange, clusterDns }) {
             </div>
             <div>
               <label style={{ fontSize: "0.75rem", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>IP Address</label>
-              <input className="pf-v5-c-form-control" value={netState.simple?.ip || ""} onChange={e => setSimple("ip", e.target.value)} placeholder="10.5.1.21" style={{ width: "100%" }} />
+              <input className="pf-v5-c-form-control" value={netState.simple?.ip || ""} onChange={e => setSimple("ip", e.target.value)} onBlur={e => { const v = e.target.value.trim(); if (v !== e.target.value) setSimple("ip", v); onAutoFill && onAutoFill(null, "ip", v); }} placeholder="10.5.1.21" style={{ width: "100%" }} />
             </div>
             <div>
               <label style={{ fontSize: "0.75rem", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Prefix Length</label>
-              <input className="pf-v5-c-form-control" value={netState.simple?.prefixLength || "24"} onChange={e => setSimple("prefixLength", e.target.value)} placeholder="24" style={{ width: "100%" }} />
+              <select className="pf-v5-c-form-control" value={netState.simple?.prefixLength || "24"} onChange={e => setSimple("prefixLength", e.target.value)} style={{ width: "100%" }}>
+                {PREFIX_OPTIONS.map(p => <option key={p} value={p}>/{p}</option>)}
+              </select>
             </div>
             <div style={{ gridColumn: "1 / -1" }}>
-              <label style={{ fontSize: "0.75rem", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Default Gateway</label>
-              <input className="pf-v5-c-form-control" value={netState.simple?.gateway || ""} onChange={e => setSimple("gateway", e.target.value)} placeholder="10.5.1.1" style={{ width: "100%" }} />
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.25rem" }}>
+                <label style={{ fontSize: "0.75rem", fontWeight: 600 }}>Default Gateway</label>
+                <label style={{ fontSize: "0.75rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.3rem", color: "#6a6e73" }}>
+                  <input type="checkbox" checked={!!netState.simple?.noGateway} onChange={e => onChange({ ...netState, simple: { ...(netState.simple || {}), noGateway: e.target.checked, gateway: e.target.checked ? "" : (netState.simple?.gateway || "") } })} />
+                  No gateway
+                </label>
+              </div>
+              {!netState.simple?.noGateway && (
+                <input className="pf-v5-c-form-control" value={netState.simple?.gateway || ""} onChange={e => setSimple("gateway", e.target.value)} onBlur={e => { const v = e.target.value.trim(); if (v !== e.target.value) setSimple("gateway", v); onAutoFill && onAutoFill(null, "gateway", v); }} placeholder="10.5.1.1" style={{ width: "100%" }} />
+              )}
             </div>
           </div>
         )}
@@ -439,6 +463,11 @@ function NodeNetworkPanel({ node, netState, onChange, clusterDns }) {
                 availableNics={availableNics}
                 onUpdate={updated => updateBond(idx, updated)}
                 onRemove={() => removeBond(idx)}
+                onIpBlur={val => onAutoFill && onAutoFill(bond.name, "ip", val)}
+                onGatewayBlur={val => onAutoFill && onAutoFill(bond.name, "gateway", val)}
+                onNoGatewayChange={checked => onAutoFill && onAutoFill(bond.name, "noGateway", checked)}
+                onVlanChange={checked => onAutoFill && onAutoFill(bond.name, "vlan", checked)}
+                onVlanIdBlur={val => onAutoFill && onAutoFill(bond.name, "vlanId", val)}
               />
             ))}
             <Button
@@ -667,6 +696,92 @@ export default function ConfigureView({ nodes, clusterConfig, ocpVersions, onClu
     }
   }, [onNodeNetworkChange, clusterConfig, nodes]);
 
+  const handleAutoFill = useCallback((nodeId, bondName, field, value) => {
+    // For text fields, don't fire on empty
+    if ((field === "ip" || field === "gateway" || field === "vlanId") && !value) return;
+
+    const triggerNode = nodes.find(n => n.id === nodeId);
+    if (!triggerNode?.hostname) return;
+
+    // Parse the first DNS label for numeric suffix: "cp1.flightpath.test" → label="cp1", domain="flightpath.test"
+    const labelParts = triggerNode.hostname.split(".");
+    const firstLabel = labelParts[0];
+    const domain = labelParts.slice(1).join(".");
+    const labelMatch = firstLabel.match(/^(.*?)(\d+)$/);
+    if (!labelMatch) return;
+    const base = labelMatch[1];
+    const triggerNum = parseInt(labelMatch[2], 10);
+
+    const peers = sortedClassified(nodes).filter(n => {
+      if (n.id === nodeId) return false;
+      const p = (n.hostname || "").split(".");
+      const pLabel = p[0];
+      const pDomain = p.slice(1).join(".");
+      const m = pLabel.match(/^(.*?)(\d+)$/);
+      return m && m[1] === base && pDomain === domain && parseInt(m[2], 10) > triggerNum;
+    });
+
+    if (peers.length === 0) return;
+
+    for (const peer of peers) {
+      const pLabel = peer.hostname.split(".")[0];
+      const peerNum = parseInt(pLabel.match(/(\d+)$/)[1], 10);
+      const delta = peerNum - triggerNum;
+      const peerNet = nodeNetworks[peer.id] || { mode: "simple", simple: {}, bonds: [] };
+      let updatedNet = null;
+
+      if (bondName === null) {
+        // Simple mode
+        const simple = peerNet.simple || {};
+        if (field === "ip") {
+          if (simple.ip) continue;
+          const pts = value.split(".");
+          if (pts.length !== 4) continue;
+          const last = parseInt(pts[3], 10) + delta;
+          if (last > 254) continue;
+          updatedNet = { ...peerNet, simple: { ...simple, ip: `${pts[0]}.${pts[1]}.${pts[2]}.${last}` } };
+        } else if (field === "gateway") {
+          if (simple.noGateway || simple.gateway) continue;
+          updatedNet = { ...peerNet, simple: { ...simple, gateway: value } };
+        }
+      } else {
+        // Bond mode
+        const peerBonds = peerNet.bonds || [];
+        const bidx = peerBonds.findIndex(b => b.name === bondName);
+        if (bidx === -1) continue;
+        const b = peerBonds[bidx];
+        const updatedBonds = [...peerBonds];
+
+        if (field === "ip") {
+          if (b.ip) continue;
+          const pts = value.split(".");
+          if (pts.length !== 4) continue;
+          const last = parseInt(pts[3], 10) + delta;
+          if (last > 254) continue;
+          updatedBonds[bidx] = { ...b, ip: `${pts[0]}.${pts[1]}.${pts[2]}.${last}` };
+        } else if (field === "gateway") {
+          if (b.noGateway || b.gateway) continue;
+          updatedBonds[bidx] = { ...b, gateway: value };
+        } else if (field === "noGateway") {
+          if (b.gateway) continue; // peer already has an explicit gateway — don't remove it
+          updatedBonds[bidx] = { ...b, noGateway: value, gateway: "" };
+        } else if (field === "vlan") {
+          if (b.vlan || b.vlanId) continue;
+          updatedBonds[bidx] = { ...b, vlan: value };
+        } else if (field === "vlanId") {
+          if (b.vlanId) continue;
+          updatedBonds[bidx] = { ...b, vlanId: value };
+        } else {
+          continue;
+        }
+
+        updatedNet = { ...peerNet, bonds: updatedBonds };
+      }
+
+      if (updatedNet) handleNetworkChange(peer.id, updatedNet);
+    }
+  }, [nodes, nodeNetworks, handleNetworkChange]);
+
   if (classified.length === 0) {
     return (
       <div style={{ padding: "3rem", textAlign: "center", color: "#6a6e73" }}>
@@ -677,11 +792,20 @@ export default function ConfigureView({ nodes, clusterConfig, ocpVersions, onClu
 
   return (
     <div>
-      {saveStatus === "saved" && (
-        <Alert variant="success" title="Cluster config saved." style={{ marginBottom: "1rem" }} />
-      )}
-      {saveStatus === "error" && (
-        <Alert variant="danger" title="Failed to save cluster config." style={{ marginBottom: "1rem" }} />
+      {saveStatus && (
+        <div style={{
+          position: "fixed",
+          top: "3.5rem",
+          right: "1.5rem",
+          zIndex: 9999,
+          minWidth: "220px",
+          pointerEvents: "none",
+        }}>
+          <Alert
+            variant={saveStatus === "saved" ? "success" : "danger"}
+            title={saveStatus === "saved" ? "Configuration saved." : "Failed to save configuration."}
+          />
+        </div>
       )}
 
       <ClusterConfigSection
@@ -703,12 +827,13 @@ export default function ConfigureView({ nodes, clusterConfig, ocpVersions, onClu
           node={node}
           netState={nodeNetworks[node.id] || {
             mode: "simple",
-            simple: { nic: node.interface_selected || "", ip: "", prefixLength: "24", gateway: "" },
+            simple: { nic: node.interface_selected || "", ip: "", prefixLength: "24", gateway: "", noGateway: false },
             bonds: [],
             defaultRouteBond: "",
           }}
           onChange={netState => handleNetworkChange(node.id, netState)}
           clusterDns={clusterConfig.dns_servers || ""}
+          onAutoFill={(bondName, field, value) => handleAutoFill(node.id, bondName, field, value)}
         />
       ))}
     </div>
