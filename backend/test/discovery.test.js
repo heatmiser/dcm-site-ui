@@ -15,6 +15,7 @@ const request = supertest(app);
 const DELL_R750_NODE = {
   serial: "7X4KPM3",
   hostname: "discovery-7x4kpm3.local",
+  mac: "b4:96:91:a2:3c:10",
   ip: "10.0.100.101",
   interfaces: [
     { name: "eno1", mac: "b4:96:91:a2:3c:10", state: "up", mtu: 1500, speed: 1000 },
@@ -58,12 +59,6 @@ describe("POST /api/discovery/report", () => {
   it("rejects missing serial", async () => {
     const { serial: _serial, ...noSerial } = DELL_R750_NODE;
     const res = await request.post("/api/discovery/report").send(noSerial);
-    assert.equal(res.status, 400);
-  });
-
-  it("rejects missing ip", async () => {
-    const { ip: _ip, ...noIp } = DELL_R750_NODE;
-    const res = await request.post("/api/discovery/report").send(noIp);
     assert.equal(res.status, 400);
   });
 

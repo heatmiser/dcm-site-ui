@@ -10,6 +10,7 @@ import { getMetrics, getMetricsContentType } from "./metrics.js";
 import discoveryRouter from "./routes/discovery.js";
 import clusterRouter from "./routes/cluster.js";
 import installRouter from "./routes/install.js";
+import { startPoller } from "./laceupPoller.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -43,6 +44,8 @@ app.get("/api/metrics", async (_req, res) => {
 app.use("/api/discovery", discoveryRouter);
 app.use("/api/install", installRouter);
 app.use("/api", clusterRouter);
+
+startPoller();
 
 if (!isDevelopment) {
   const publicDir = path.join(__dirname, "..", "public");

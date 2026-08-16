@@ -16,5 +16,9 @@ dev-data/
 .vscode/
 .claude/
 
+# Python artifacts
+__pycache__/
+*.pyc
+
 # Local secrets
 ignore/

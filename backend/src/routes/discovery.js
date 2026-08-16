@@ -13,10 +13,10 @@ const DRAIN_POLL_INTERVAL_MS = 1_000;
 // Receives a hardware manifest from a node running the live ISO.
 // Idempotent: re-report from same serial resets drain state and updates manifest.
 router.post("/report", (req, res) => {
-  const { serial, ip } = req.body;
+  const { serial, mac, ip } = req.body;
 
-  if (!serial || !ip) {
-    return res.status(400).json({ error: "serial and ip are required" });
+  if (!serial) {
+    return res.status(400).json({ error: "serial is required" });
   }
 
   const id = nanoid();
@@ -25,16 +25,17 @@ router.post("/report", (req, res) => {
 
   try {
     db.prepare(`
-      INSERT INTO discovered_nodes (id, serial, ip, received_at, manifest_json)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO discovered_nodes (id, serial, mac, ip, received_at, manifest_json)
+      VALUES (?, ?, ?, ?, ?, ?)
       ON CONFLICT(serial) DO UPDATE SET
+        mac = excluded.mac,
         ip = excluded.ip,
         received_at = excluded.received_at,
         manifest_json = excluded.manifest_json,
         drained_at = NULL
-    `).run(id, serial, ip, now, manifest_json);
+    `).run(id, serial, mac ?? null, ip ?? null, now, manifest_json);
 
-    logger.info({ serial, ip }, "Node reported");
+    logger.info({ serial, mac, ip }, "Node reported");
     return res.json({ status: "ok", id });
   } catch (err) {
     const errorId = generateErrorId();
