@@ -33,8 +33,8 @@ function sortedClassified(nodes) {
 // Build NMState networkConfig from node net state.
 // netState shape:
 //   mode: "simple" | "bond"
-//   simple: { nic, ip, prefixLength, gateway }
-//   bonds: [{ name, mode, members[], ip, prefixLength, gateway, vlan, vlanId }]
+//   simple: { nic, ip, prefixLength, gateway, noGateway }
+//   bonds: [{ name, mode, members[], ip, prefixLength, gateway, noGateway, vlans: [{ vlanId, label, ip, prefixLength, gateway, noGateway }] }]
 //   dnsServers: string[]
 function buildNmstate(node, netState) {
   const m = node.manifest || {};
@@ -65,20 +65,17 @@ function buildNmstate(node, netState) {
   } else if (netState.mode === "bond") {
     const defaultRouteBond = netState.defaultRouteBond || "";
     for (const bond of (netState.bonds || [])) {
-      const { name, mode, members, ip, prefixLength, gateway, vlan, vlanId } = bond;
+      const { name, mode, members, ip, prefixLength, gateway, vlans, nativeEnabled } = bond;
       if (!name || !members?.length) continue;
 
       const memberIfaces = allIfaces.filter(i => members.includes(i.name));
-      const hasVlan = vlan && vlanId;
-      const vlanIfaceName = hasVlan ? `${name}.${vlanId}` : null;
-      const ipOnParent = !hasVlan;
 
-      // Bond parent interface
+      // Bond parent — native/untagged IP (may be empty if all traffic is VLAN-tagged)
       interfaces.push({
         name,
         type: "bond",
         state: "up",
-        ipv4: ipOnParent && ip && prefixLength
+        ipv4: nativeEnabled !== false && ip && prefixLength
           ? { enabled: true, address: [{ ip: ip.trim(), "prefix-length": parseInt(prefixLength, 10) }], dhcp: false }
           : { enabled: false },
         "link-aggregation": {
@@ -98,25 +95,26 @@ function buildNmstate(node, netState) {
         });
       }
 
-      // VLAN interface (carries the IP when VLAN is enabled)
-      if (hasVlan && ip && prefixLength) {
+      // VLAN sub-interfaces (tagged)
+      for (const vl of (vlans || [])) {
+        if (!vl.vlanId) continue;
+        const vlanIfaceName = `${name}.${vl.vlanId}`;
+        const isBridgeTrunk = vl.bridgeTrunk === true;
+        if (!isBridgeTrunk && (!vl.ip || !vl.prefixLength)) continue;
         interfaces.push({
           name: vlanIfaceName,
           type: "vlan",
           state: "up",
-          vlan: { "base-iface": name, id: parseInt(vlanId, 10) },
-          ipv4: {
-            enabled: true,
-            address: [{ ip: ip.trim(), "prefix-length": parseInt(prefixLength, 10) }],
-            dhcp: false,
-          },
+          vlan: { "base-iface": name, id: parseInt(vl.vlanId, 10) },
+          ipv4: isBridgeTrunk
+            ? { enabled: false }
+            : { enabled: true, address: [{ ip: vl.ip.trim(), "prefix-length": parseInt(vl.prefixLength, 10) }], dhcp: false },
         });
       }
 
-      // Only the designated default route bond emits the 0.0.0.0/0 route
-      if (name === defaultRouteBond && gateway) {
-        const routeIface = hasVlan ? vlanIfaceName : name;
-        routes.push({ destination: "0.0.0.0/0", "next-hop-address": gateway.trim(), "next-hop-interface": routeIface, "table-id": 254 });
+      // Default route via bond parent gateway
+      if (name === defaultRouteBond && nativeEnabled !== false && gateway) {
+        routes.push({ destination: "0.0.0.0/0", "next-hop-address": gateway.trim(), "next-hop-interface": name, "table-id": 254 });
       }
     }
     if (interfaces.length === 0) return null;
@@ -176,12 +174,164 @@ function formatScalar(v) {
   return String(v);
 }
 
+// --- VLAN sub-interface entry editor ---
+function VlanEntry({ vlan, index, bondName, onUpdate, onRemove, onVlanIdBlur, onVlanLabelBlur, onIpBlur, onGatewayBlur, onNoGatewayChange, onBridgeTrunkChange }) {
+  const set = (field, value) => onUpdate({ ...vlan, [field]: value });
+  const vlanIfaceName = bondName && vlan.vlanId ? `${bondName}.${vlan.vlanId}` : null;
+  const isBridgeTrunk = vlan.bridgeTrunk === true;
+
+  return (
+    <div style={{
+      border: `1px solid ${isBridgeTrunk ? "#c7bfed" : "#b8d4f0"}`,
+      borderRadius: "3px",
+      marginBottom: "0.5rem",
+      overflow: "hidden",
+    }}>
+      <div style={{
+        background: isBridgeTrunk ? "#ece8f8" : "#d8eaf8",
+        padding: "0.3rem 0.6rem",
+        display: "flex",
+        alignItems: "center",
+        gap: "0.5rem",
+      }}>
+        <span style={{ fontFamily: "monospace", fontWeight: 600, fontSize: "0.8rem" }}>
+          {vlanIfaceName || `VLAN ${index + 1}`}
+        </span>
+        {vlan.label && (
+          <span style={{ fontSize: "0.75rem", color: isBridgeTrunk ? "#5a3ea6" : "#0055aa", fontWeight: 600, textTransform: "uppercase" }}>
+            {vlan.label}
+          </span>
+        )}
+        {isBridgeTrunk && (
+          <span style={{ fontSize: "0.7rem", background: "#7b5ea7", color: "#fff", borderRadius: "2px", padding: "0 0.3rem", fontWeight: 600, letterSpacing: "0.03em" }}>
+            TRUNK
+          </span>
+        )}
+        <Button variant="plain" onClick={onRemove} style={{ marginLeft: "auto", padding: "0 0.25rem", color: "#c9190b", fontSize: "0.75rem" }}>
+          ✕
+        </Button>
+      </div>
+
+      <div style={{ padding: "0.5rem 0.6rem", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.4rem" }}>
+        <div>
+          <label style={{ fontSize: "0.7rem", fontWeight: 600, display: "block", marginBottom: "0.15rem" }}>VLAN ID</label>
+          <input
+            className="pf-v5-c-form-control"
+            value={vlan.vlanId}
+            onChange={e => set("vlanId", e.target.value)}
+            onBlur={e => onVlanIdBlur && onVlanIdBlur(e.target.value)}
+            placeholder="301"
+            style={{ width: "100%" }}
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: "0.7rem", fontWeight: 600, display: "block", marginBottom: "0.15rem" }}>Label (optional)</label>
+          <input
+            className="pf-v5-c-form-control"
+            value={vlan.label || ""}
+            onChange={e => set("label", e.target.value)}
+            onBlur={e => onVlanLabelBlur && onVlanLabelBlur(e.target.value)}
+            placeholder="MACHINE"
+            style={{ width: "100%" }}
+          />
+        </div>
+
+        <div style={{ gridColumn: "1 / -1" }}>
+          <label style={{ fontSize: "0.7rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.3rem", color: "#6a6e73" }}>
+            <input
+              type="checkbox"
+              checked={isBridgeTrunk}
+              onChange={e => {
+                onUpdate({ ...vlan, bridgeTrunk: e.target.checked, ip: "", gateway: "", noGateway: false });
+                onBridgeTrunkChange && onBridgeTrunkChange(e.target.checked);
+              }}
+            />
+            No host IP — OVS bridge trunk
+          </label>
+        </div>
+
+        {isBridgeTrunk ? (
+          <div style={{ gridColumn: "1 / -1", background: "#f4f1fb", border: "1px solid #c7bfed", borderRadius: "3px", padding: "0.35rem 0.5rem", fontSize: "0.72rem", color: "#5a3ea6" }}>
+            VLAN sub-interface <code style={{ fontFamily: "monospace" }}>{vlanIfaceName || `bond.${vlan.vlanId || "?"}`}</code> will be created with <code style={{ fontFamily: "monospace" }}>ipv4: disabled</code>. OVS bridge attachment is configured Day 2 via NMState Operator NNCP.
+          </div>
+        ) : <>
+          <div>
+            <label style={{ fontSize: "0.7rem", fontWeight: 600, display: "block", marginBottom: "0.15rem" }}>IP Address</label>
+            <input
+              className="pf-v5-c-form-control"
+              value={vlan.ip}
+              onChange={e => set("ip", e.target.value)}
+              onBlur={e => { const v = e.target.value.trim(); if (v !== e.target.value) set("ip", v); onIpBlur && onIpBlur(v); }}
+              placeholder="10.5.3.21"
+              style={{ width: "100%" }}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: "0.7rem", fontWeight: 600, display: "block", marginBottom: "0.15rem" }}>Prefix Length</label>
+            <select
+              className="pf-v5-c-form-control"
+              value={vlan.prefixLength}
+              onChange={e => set("prefixLength", e.target.value)}
+              style={{ width: "100%" }}
+            >
+              {PREFIX_OPTIONS.map(p => <option key={p} value={p}>/{p}</option>)}
+            </select>
+          </div>
+          <div style={{ gridColumn: "1 / -1" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.15rem" }}>
+              <label style={{ fontSize: "0.7rem", fontWeight: 600 }}>Gateway</label>
+              <label style={{ fontSize: "0.7rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.3rem", color: "#6a6e73" }}>
+                <input
+                  type="checkbox"
+                  checked={!!vlan.noGateway}
+                  onChange={e => {
+                    onUpdate({ ...vlan, noGateway: e.target.checked, gateway: e.target.checked ? "" : vlan.gateway });
+                    onNoGatewayChange && onNoGatewayChange(e.target.checked);
+                  }}
+                />
+                No gateway
+              </label>
+            </div>
+            {!vlan.noGateway && (
+              <input
+                className="pf-v5-c-form-control"
+                value={vlan.gateway}
+                onChange={e => set("gateway", e.target.value)}
+                onBlur={e => { const v = e.target.value.trim(); if (v !== e.target.value) set("gateway", v); onGatewayBlur && onGatewayBlur(v); }}
+                placeholder="10.5.3.1"
+                style={{ width: "100%" }}
+              />
+            )}
+          </div>
+        </>}
+      </div>
+    </div>
+  );
+}
+
 // --- Bond entry editor ---
-function BondEntry({ bond, index, availableNics, allNics, onUpdate, onRemove, onIpBlur, onGatewayBlur, onNoGatewayChange, onVlanChange, onVlanIdBlur }) {
-  const { name, mode, members, ip, prefixLength, gateway, vlan, vlanId, noGateway } = bond;
+function BondEntry({ bond, index, availableNics, allNics, onUpdate, onRemove, onIpBlur, onGatewayBlur, onNoGatewayChange, onVlanIdBlur, onVlanLabelBlur, onVlanIpBlur, onVlanGatewayBlur, onVlanNoGatewayChange, onNativeEnabledChange, onVlanBridgeTrunkChange }) {
+  const { name, mode, members, ip, prefixLength, gateway, noGateway, vlans } = bond;
+  const nativeEnabled = bond.nativeEnabled !== false;
   const set = (field, value) => onUpdate({ ...bond, [field]: value });
 
-  const vlanIfaceName = vlan && vlanId ? `${name || "bond"}.${vlanId}` : null;
+  const vlanSummary = (vlans || []).filter(v => v.vlanId).map(v => `VLAN ${v.vlanId}${v.label ? ` (${v.label})` : ""}${v.bridgeTrunk ? " [TRUNK]" : ""}`).join(", ");
+
+  const addVlan = () => {
+    const updated = [...(vlans || []), { vlanId: "", label: "", ip: "", prefixLength: "24", gateway: "", noGateway: false, bridgeTrunk: false }];
+    onUpdate({ ...bond, vlans: updated });
+  };
+
+  const updateVlan = (vi, updated) => {
+    const updated_vlans = [...(vlans || [])];
+    updated_vlans[vi] = updated;
+    onUpdate({ ...bond, vlans: updated_vlans });
+  };
+
+  const removeVlan = (vi) => {
+    const updated_vlans = (vlans || []).filter((_, i) => i !== vi);
+    onUpdate({ ...bond, vlans: updated_vlans });
+  };
 
   return (
     <div style={{
@@ -199,7 +349,7 @@ function BondEntry({ bond, index, availableNics, allNics, onUpdate, onRemove, on
       }}>
         <span style={{ fontWeight: 600, fontSize: "0.875rem" }}>
           {name || `bond${index}`}
-          {vlanIfaceName ? ` → ${vlanIfaceName}` : ""}
+          {vlanSummary ? <span style={{ fontWeight: 400, color: "#0055aa", marginLeft: "0.5rem", fontSize: "0.8rem" }}>[{vlanSummary}]</span> : ""}
         </span>
         <Button variant="plain" onClick={onRemove} style={{ padding: "0 0.25rem", color: "#c9190b" }}>
           ✕ Remove
@@ -261,55 +411,79 @@ function BondEntry({ bond, index, availableNics, allNics, onUpdate, onRemove, on
           </div>
         </div>
 
-        <div>
-          <label style={{ fontSize: "0.75rem", fontWeight: 600, display: "block", marginBottom: "0.2rem" }}>IP Address</label>
-          <input className="pf-v5-c-form-control" value={ip} onChange={e => set("ip", e.target.value)} onBlur={e => { const v = e.target.value.trim(); if (v !== e.target.value) set("ip", v); onIpBlur && onIpBlur(v); }} placeholder="10.5.1.21" style={{ width: "100%" }} />
-        </div>
-
-        <div>
-          <label style={{ fontSize: "0.75rem", fontWeight: 600, display: "block", marginBottom: "0.2rem" }}>Prefix Length</label>
-          <select className="pf-v5-c-form-control" value={prefixLength} onChange={e => set("prefixLength", e.target.value)} style={{ width: "100%" }}>
-            {PREFIX_OPTIONS.map(p => <option key={p} value={p}>/{p}</option>)}
-          </select>
-        </div>
-
-        <div style={{ gridColumn: "1 / -1" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.2rem" }}>
-            <label style={{ fontSize: "0.75rem", fontWeight: 600 }}>Default Gateway</label>
-            <label style={{ fontSize: "0.75rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.3rem", color: "#6a6e73" }}>
-              <input type="checkbox" checked={!!noGateway} onChange={e => { onUpdate({ ...bond, noGateway: e.target.checked, gateway: e.target.checked ? "" : gateway }); onNoGatewayChange && onNoGatewayChange(e.target.checked); }} />
-              No gateway
-            </label>
-          </div>
-          {!noGateway && (
-            <input className="pf-v5-c-form-control" value={gateway} onChange={e => set("gateway", e.target.value)} onBlur={e => { const v = e.target.value.trim(); if (v !== e.target.value) set("gateway", v); onGatewayBlur && onGatewayBlur(v); }} placeholder="10.5.1.1" style={{ width: "100%" }} />
-          )}
-        </div>
-
-        {/* VLAN toggle */}
-        <div style={{ gridColumn: "1 / -1", display: "flex", alignItems: "center", gap: "1rem", marginTop: "0.25rem" }}>
-          <label style={{ fontSize: "0.8rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-            <input type="checkbox" checked={!!vlan} onChange={e => { set("vlan", e.target.checked); onVlanChange && onVlanChange(e.target.checked); }} />
-            VLAN
+        {/* Native / untagged IP config */}
+        <div style={{ gridColumn: "1 / -1", borderTop: "1px solid #e8e8e8", paddingTop: "0.5rem", marginTop: "0.1rem" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", cursor: "pointer", fontSize: "0.72rem", color: "#6a6e73", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: "0.4rem" }}>
+            <input
+              type="checkbox"
+              checked={nativeEnabled}
+              onChange={e => {
+                onUpdate({ ...bond, nativeEnabled: e.target.checked });
+                onNativeEnabledChange && onNativeEnabledChange(e.target.checked);
+              }}
+            />
+            Native / Untagged
           </label>
-          {vlan && (
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <label style={{ fontSize: "0.75rem", fontWeight: 600 }}>VLAN ID</label>
-              <input
-                className="pf-v5-c-form-control"
-                value={vlanId}
-                onChange={e => set("vlanId", e.target.value)}
-                onBlur={e => onVlanIdBlur && onVlanIdBlur(e.target.value)}
-                placeholder="100"
-                style={{ width: "80px" }}
-              />
-              {vlanIfaceName && (
-                <span style={{ fontSize: "0.75rem", color: "#6a6e73", fontFamily: "monospace" }}>
-                  → interface: {vlanIfaceName}
-                </span>
-              )}
+        </div>
+
+        {nativeEnabled && <>
+          <div>
+            <label style={{ fontSize: "0.75rem", fontWeight: 600, display: "block", marginBottom: "0.2rem" }}>IP Address</label>
+            <input className="pf-v5-c-form-control" value={ip} onChange={e => set("ip", e.target.value)} onBlur={e => { const v = e.target.value.trim(); if (v !== e.target.value) set("ip", v); onIpBlur && onIpBlur(v); }} placeholder="10.5.1.21" style={{ width: "100%" }} />
+          </div>
+
+          <div>
+            <label style={{ fontSize: "0.75rem", fontWeight: 600, display: "block", marginBottom: "0.2rem" }}>Prefix Length</label>
+            <select className="pf-v5-c-form-control" value={prefixLength} onChange={e => set("prefixLength", e.target.value)} style={{ width: "100%" }}>
+              {PREFIX_OPTIONS.map(p => <option key={p} value={p}>/{p}</option>)}
+            </select>
+          </div>
+
+          <div style={{ gridColumn: "1 / -1" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.2rem" }}>
+              <label style={{ fontSize: "0.75rem", fontWeight: 600 }}>Default Gateway</label>
+              <label style={{ fontSize: "0.75rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.3rem", color: "#6a6e73" }}>
+                <input type="checkbox" checked={!!noGateway} onChange={e => { onUpdate({ ...bond, noGateway: e.target.checked, gateway: e.target.checked ? "" : gateway }); onNoGatewayChange && onNoGatewayChange(e.target.checked); }} />
+                No gateway
+              </label>
+            </div>
+            {!noGateway && (
+              <input className="pf-v5-c-form-control" value={gateway} onChange={e => set("gateway", e.target.value)} onBlur={e => { const v = e.target.value.trim(); if (v !== e.target.value) set("gateway", v); onGatewayBlur && onGatewayBlur(v); }} placeholder="10.5.1.1" style={{ width: "100%" }} />
+            )}
+          </div>
+        </>}
+
+        {/* VLAN sub-interfaces */}
+        <div style={{ gridColumn: "1 / -1", borderTop: "1px solid #e8e8e8", paddingTop: "0.5rem", marginTop: "0.1rem" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.4rem" }}>
+            <div style={{ fontSize: "0.72rem", color: "#6a6e73", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.03em" }}>
+              VLAN Sub-interfaces
+            </div>
+            <Button variant="link" isInline onClick={addVlan} style={{ fontSize: "0.8rem" }}>
+              + Add VLAN
+            </Button>
+          </div>
+          {(vlans || []).length === 0 && (
+            <div style={{ fontSize: "0.8rem", color: "#6a6e73", fontStyle: "italic" }}>
+              No tagged VLANs — add one if this bond carries tagged sub-interfaces.
             </div>
           )}
+          {(vlans || []).map((vl, vi) => (
+            <VlanEntry
+              key={vi}
+              vlan={vl}
+              index={vi}
+              bondName={name}
+              onUpdate={updated => updateVlan(vi, updated)}
+              onRemove={() => removeVlan(vi)}
+              onVlanIdBlur={val => onVlanIdBlur && onVlanIdBlur(vi, val)}
+              onVlanLabelBlur={val => onVlanLabelBlur && onVlanLabelBlur(vi, val)}
+              onIpBlur={val => onVlanIpBlur && onVlanIpBlur(vi, val)}
+              onGatewayBlur={val => onVlanGatewayBlur && onVlanGatewayBlur(vi, val)}
+              onNoGatewayChange={checked => onVlanNoGatewayChange && onVlanNoGatewayChange(vi, checked)}
+              onBridgeTrunkChange={checked => onVlanBridgeTrunkChange && onVlanBridgeTrunkChange(vi, checked)}
+            />
+          ))}
         </div>
       </div>
     </div>
@@ -358,8 +532,8 @@ function NodeNetworkPanel({ node, netState, onChange, clusterDns, onAutoFill }) 
       prefixLength: "24",
       gateway: "",
       noGateway: false,
-      vlan: false,
-      vlanId: "",
+      nativeEnabled: true,
+      vlans: [],
     };
     onChange({ ...netState, bonds: [...(netState.bonds || []), newBond] });
   };
@@ -466,8 +640,13 @@ function NodeNetworkPanel({ node, netState, onChange, clusterDns, onAutoFill }) 
                 onIpBlur={val => onAutoFill && onAutoFill(bond.name, "ip", val)}
                 onGatewayBlur={val => onAutoFill && onAutoFill(bond.name, "gateway", val)}
                 onNoGatewayChange={checked => onAutoFill && onAutoFill(bond.name, "noGateway", checked)}
-                onVlanChange={checked => onAutoFill && onAutoFill(bond.name, "vlan", checked)}
-                onVlanIdBlur={val => onAutoFill && onAutoFill(bond.name, "vlanId", val)}
+                onVlanIdBlur={(vi, val) => onAutoFill && onAutoFill(bond.name, "vlanId", { vlanIdx: vi, vlanId: val })}
+                onVlanLabelBlur={(vi, val) => onAutoFill && onAutoFill(bond.name, "vlanLabel", { vlanIdx: vi, label: val })}
+                onVlanIpBlur={(vi, val) => onAutoFill && onAutoFill(bond.name, "vlanIp", { vlanIdx: vi, ip: val })}
+                onVlanGatewayBlur={(vi, val) => onAutoFill && onAutoFill(bond.name, "vlanGateway", { vlanIdx: vi, gateway: val })}
+                onVlanNoGatewayChange={(vi, checked) => onAutoFill && onAutoFill(bond.name, "vlanNoGateway", { vlanIdx: vi, noGateway: checked })}
+                onNativeEnabledChange={checked => onAutoFill && onAutoFill(bond.name, "nativeEnabled", checked)}
+                onVlanBridgeTrunkChange={(vi, checked) => onAutoFill && onAutoFill(bond.name, "vlanBridgeTrunk", { vlanIdx: vi, bridgeTrunk: checked })}
               />
             ))}
             <Button
@@ -483,7 +662,7 @@ function NodeNetworkPanel({ node, netState, onChange, clusterDns, onAutoFill }) 
               </span>
             )}
 
-            {/* Default route selector — shown when there are 2+ bonds */}
+            {/* Default route selector */}
             {(netState.bonds || []).filter(b => b.name).length >= 1 && (
               <div style={{
                 marginTop: "0.75rem",
@@ -506,9 +685,6 @@ function NodeNetworkPanel({ node, netState, onChange, clusterDns, onAutoFill }) 
                         onChange={() => onChange({ ...netState, defaultRouteBond: b.name })}
                       />
                       <span style={{ fontFamily: "monospace" }}>{b.name}</span>
-                      {b.vlan && b.vlanId
-                        ? <span style={{ color: "#6a6e73", fontSize: "0.8rem" }}>→ via {b.name}.{b.vlanId}</span>
-                        : null}
                       {b.gateway
                         ? <span style={{ color: "#6a6e73", fontSize: "0.8rem" }}>gateway: {b.gateway}</span>
                         : <span style={{ color: "#c9190b", fontSize: "0.8rem" }}>no gateway set</span>}
@@ -697,8 +873,12 @@ export default function ConfigureView({ nodes, clusterConfig, ocpVersions, onClu
   }, [onNodeNetworkChange, clusterConfig, nodes]);
 
   const handleAutoFill = useCallback((nodeId, bondName, field, value) => {
-    // For text fields, don't fire on empty
-    if ((field === "ip" || field === "gateway" || field === "vlanId") && !value) return;
+    // Guard: don't fire on empty text values
+    if ((field === "ip" || field === "gateway") && !value) return;
+    if (field === "vlanId" && !value?.vlanId) return;
+    if (field === "vlanLabel" && !value?.label) return;
+    if (field === "vlanIp" && !value?.ip) return;
+    if (field === "vlanGateway" && !value?.gateway) return;
 
     const triggerNode = nodes.find(n => n.id === nodeId);
     if (!triggerNode?.hostname) return;
@@ -763,14 +943,61 @@ export default function ConfigureView({ nodes, clusterConfig, ocpVersions, onClu
           if (b.noGateway || b.gateway) continue;
           updatedBonds[bidx] = { ...b, gateway: value };
         } else if (field === "noGateway") {
-          if (b.gateway) continue; // peer already has an explicit gateway — don't remove it
+          if (b.gateway) continue;
           updatedBonds[bidx] = { ...b, noGateway: value, gateway: "" };
-        } else if (field === "vlan") {
-          if (b.vlan || b.vlanId) continue;
-          updatedBonds[bidx] = { ...b, vlan: value };
         } else if (field === "vlanId") {
-          if (b.vlanId) continue;
-          updatedBonds[bidx] = { ...b, vlanId: value };
+          const { vlanIdx, vlanId } = value;
+          const peerVlans = b.vlans || [];
+          if (peerVlans[vlanIdx]?.vlanId) continue;
+          const updatedVlans = [...peerVlans];
+          const existing = updatedVlans[vlanIdx] || { vlanId: "", label: "", ip: "", prefixLength: "24", gateway: "", noGateway: false, bridgeTrunk: false };
+          updatedVlans[vlanIdx] = { ...existing, vlanId };
+          updatedBonds[bidx] = { ...b, vlans: updatedVlans };
+        } else if (field === "vlanLabel") {
+          const { vlanIdx, label } = value;
+          const peerVlans = b.vlans || [];
+          if (peerVlans[vlanIdx]?.label) continue;
+          const updatedVlans = [...peerVlans];
+          const existing = updatedVlans[vlanIdx] || { vlanId: "", label: "", ip: "", prefixLength: "24", gateway: "", noGateway: false, bridgeTrunk: false };
+          updatedVlans[vlanIdx] = { ...existing, label };
+          updatedBonds[bidx] = { ...b, vlans: updatedVlans };
+        } else if (field === "vlanIp") {
+          const { vlanIdx, ip } = value;
+          const peerVlans = b.vlans || [];
+          if (peerVlans[vlanIdx]?.ip) continue;
+          const pts = ip.split(".");
+          if (pts.length !== 4) continue;
+          const last = parseInt(pts[3], 10) + delta;
+          if (last > 254) continue;
+          const updatedVlans = [...peerVlans];
+          const existing = updatedVlans[vlanIdx] || { vlanId: "", label: "", ip: "", prefixLength: "24", gateway: "", noGateway: false, bridgeTrunk: false };
+          updatedVlans[vlanIdx] = { ...existing, ip: `${pts[0]}.${pts[1]}.${pts[2]}.${last}` };
+          updatedBonds[bidx] = { ...b, vlans: updatedVlans };
+        } else if (field === "vlanGateway") {
+          const { vlanIdx, gateway } = value;
+          const peerVlans = b.vlans || [];
+          if (peerVlans[vlanIdx]?.noGateway || peerVlans[vlanIdx]?.gateway) continue;
+          const updatedVlans = [...peerVlans];
+          const existing = updatedVlans[vlanIdx] || { vlanId: "", label: "", ip: "", prefixLength: "24", gateway: "", noGateway: false, bridgeTrunk: false };
+          updatedVlans[vlanIdx] = { ...existing, gateway };
+          updatedBonds[bidx] = { ...b, vlans: updatedVlans };
+        } else if (field === "vlanNoGateway") {
+          const { vlanIdx, noGateway } = value;
+          const peerVlans = b.vlans || [];
+          if (peerVlans[vlanIdx]?.gateway) continue;
+          const updatedVlans = [...peerVlans];
+          const existing = updatedVlans[vlanIdx] || { vlanId: "", label: "", ip: "", prefixLength: "24", gateway: "", noGateway: false, bridgeTrunk: false };
+          updatedVlans[vlanIdx] = { ...existing, noGateway, gateway: "" };
+          updatedBonds[bidx] = { ...b, vlans: updatedVlans };
+        } else if (field === "vlanBridgeTrunk") {
+          const { vlanIdx, bridgeTrunk } = value;
+          const peerVlans = b.vlans || [];
+          const updatedVlans = [...peerVlans];
+          const existing = updatedVlans[vlanIdx] || { vlanId: "", label: "", ip: "", prefixLength: "24", gateway: "", noGateway: false, bridgeTrunk: false };
+          updatedVlans[vlanIdx] = { ...existing, bridgeTrunk, ip: "", gateway: "", noGateway: false };
+          updatedBonds[bidx] = { ...b, vlans: updatedVlans };
+        } else if (field === "nativeEnabled") {
+          updatedBonds[bidx] = { ...b, nativeEnabled: value };
         } else {
           continue;
         }
