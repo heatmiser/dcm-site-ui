@@ -230,9 +230,16 @@ function validateExport(classified, cc, nodeNetworks) {
       ipEntries.push({ label: `${node.hostname} (simple)`, ip: ns.simple.ip, prefix, gateway: ns.simple.noGateway ? null : (ns.simple.gateway || null) });
     } else if (ns.mode === "bond") {
       for (const bond of (ns.bonds || [])) {
-        if (!bond.ip) continue;
-        const prefix = parseInt(bond.prefixLength || "24", 10);
-        ipEntries.push({ label: `${node.hostname}/${bond.name}`, ip: bond.ip, prefix, gateway: bond.noGateway ? null : (bond.gateway || null) });
+        if (bond.ip && bond.nativeEnabled !== false) {
+          const prefix = parseInt(bond.prefixLength || "24", 10);
+          ipEntries.push({ label: `${node.hostname}/${bond.name}`, ip: bond.ip, prefix, gateway: bond.noGateway ? null : (bond.gateway || null) });
+        }
+        for (const vl of (bond.vlans || [])) {
+          if (!vl.ip || vl.bridgeTrunk) continue;
+          const prefix = parseInt(vl.prefixLength || "24", 10);
+          const vlLabel = `${node.hostname}/${bond.name}.${vl.vlanId}${vl.label ? ` (${vl.label})` : ""}`;
+          ipEntries.push({ label: vlLabel, ip: vl.ip, prefix, gateway: vl.noGateway ? null : (vl.gateway || null) });
+        }
       }
     }
   }
@@ -333,8 +340,8 @@ export default function App() {
               prefixLength: "24",
               gateway: "",
               noGateway: false,
-              vlan: false,
-              vlanId: "",
+              nativeEnabled: true,
+              vlans: [],
             })),
           };
         }

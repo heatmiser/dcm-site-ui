@@ -94,7 +94,7 @@ function translateNode(nodeName, nodeData) {
     const vendor = g.vendor || "Unknown";
     gpuMap[vendor] = (gpuMap[vendor] || 0) + 1;
   }
-  const gpu = Object.entries(gpuMap).map(([vendor, count]) => ({ count, vendor, model: null }));
+  const gpu = Object.entries(gpuMap).map(([vendor, count]) => ({ count, vendor, model: vendor }));
 
   return {
     serial,
